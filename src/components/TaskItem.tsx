@@ -1,14 +1,22 @@
 import { useState, type DragEvent } from 'react'
-import { Check, Calendar, Repeat, Star, Flag, ListChecks, Bell } from 'lucide-react'
+import { Check, Calendar, Repeat, Star, Flag, ListChecks, Bell, Hourglass } from 'lucide-react'
 import type { Task } from '../types'
 import { useStore } from '../store/useStore'
 import { useUI } from '../store/useUI'
 import { cx } from '../lib/utils'
-import { formatDue, isOverdue, isDueToday } from '../lib/date'
+import { formatDue, isOverdue, isDueToday, relativeDays } from '../lib/date'
 
 interface Props {
   task: Task
   onContext?: (e: React.MouseEvent, task: Task) => void
+}
+
+function countdownLabel(due: string): string {
+  const diff = relativeDays(due)
+  if (diff === null) return ''
+  if (diff === 0) return 'today'
+  if (diff < 0) return `${-diff}d ago`
+  return `${diff}d left`
 }
 
 export default function TaskItem({ task, onContext }: Props) {
@@ -63,7 +71,7 @@ export default function TaskItem({ task, onContext }: Props) {
       <div className="task-body">
         <div className="task-title">{task.title}</div>
 
-        {(task.dueDate || task.tags.length > 0 || task.repeat !== 'none' || task.subtasks.length > 0 || task.priority > 0 || task.reminder) && (
+        {(task.dueDate || task.tags.length > 0 || task.recurrence.rule !== 'none' || task.subtasks.length > 0 || task.priority > 0 || task.reminders.length > 0) && (
           <div className="task-meta">
             {task.dueDate && (
               <span
@@ -77,14 +85,21 @@ export default function TaskItem({ task, onContext }: Props) {
                 {formatDue(task.dueDate, task.hasTime)}
               </span>
             )}
-            {task.repeat !== 'none' && (
+            {task.countdown && task.dueDate && !task.completed && (
+              <span className="meta-chip due-today">
+                <Hourglass size={12} />
+                {countdownLabel(task.dueDate)}
+              </span>
+            )}
+            {task.recurrence.rule !== 'none' && (
               <span className="meta-chip">
                 <Repeat size={12} />
               </span>
             )}
-            {task.reminder && (
+            {task.reminders.length > 0 && (
               <span className="meta-chip">
                 <Bell size={12} />
+                {task.reminders.length > 1 ? task.reminders.length : ''}
               </span>
             )}
             {task.priority > 0 && (

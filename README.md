@@ -11,25 +11,31 @@ A feature-rich, **TickTick Premium-style** task & productivity app built with Re
   - `today` / `tomorrow` / `next week` → due date
   - `#tag` → tags
   - `!1` `!2` `!3` → Low / Medium / High priority
-- Rich task detail panel: notes, due date & time, **recurring rules** (daily, weekdays, weekly, monthly, yearly), reminders, priority, tags, and **subtasks** with progress bars
+- Rich task detail panel: notes, due date & time, priority, tags, and **subtasks** with progress bars
+- **Custom recurrence** — daily/weekly/monthly/yearly with **"every N"** intervals, weekdays, plus end conditions (never / after N occurrences / on a date)
+- **Multiple reminders** per task
+- **Countdown** mode showing days-remaining
 - Pin/star important tasks, duplicate, move between lists, right-click context menu
 - Drag-and-drop reordering
 
 ### Views
-- 📋 **List view** with sorting (manual, due date, priority, title, created)
+- 📋 **List view** with sorting (manual, due date, priority, title, created) and **group-by** (list / priority / due date / tag)
 - 🗂️ **Kanban board** — drag cards across custom columns
-- 📅 **Calendar** — month grid showing every scheduled task
+- 📅 **Calendar** — **Month / Week / Day / Agenda** views
+- 🎯 **Eisenhower Matrix** — auto-sorted Do / Schedule / Delegate / Eliminate quadrants
 
 ### Smart Lists
 Today · Tomorrow · Next 7 Days · Inbox · High Priority · All Tasks · Completed — with live counts.
+Plus **custom Smart Lists** — saved filters combining list, tag, priority, due-date and completed criteria.
 
 ### Lists, Folders & Tags
 - Custom lists with emoji + color, optionally as Kanban boards
+- **Folders / list groups** with collapse
 - Color-coded tags with dedicated filtered views
 
 ### Premium Productivity
-- 🎯 **Habit tracker** — daily goals, units, streaks 🔥 and a 40-day heatmap
-- ⏱️ **Pomodoro focus timer** — focus / short break / long break cycles, task linking, session logging, and an audible chime
+- 🎯 **Habit tracker** — daily goals & units, **weekday or X-times-per-week frequency**, habit reminders, streaks 🔥 and a 40-day heatmap
+- ⏱️ **Focus timer** — Pomodoro cycles (focus / short / long break) **and a count-up Stopwatch**, task linking, session logging, audible chime, and **ambient white / pink / brown noise**
 - 📊 **Statistics** — completion rate, overdue count, focus minutes, and a 7-day completion chart
 
 ### Polish
@@ -41,10 +47,21 @@ Today · Tomorrow · Next 7 Days · Inbox · High Priority · All Tasks · Compl
 
 ```bash
 npm install
-npm run dev      # start dev server (http://localhost:5173)
-npm run build    # type-check + production build
-npm run preview  # preview the production build
+npm run dev            # start dev server (http://localhost:5173)
+npm run build          # type-check + production build
+npm run preview        # preview the production build
+npm test               # run the unit/component test suite (Vitest)
+npm run test:coverage  # run tests with a coverage report
 ```
+
+## ✅ Testing
+
+The project ships with a **Vitest + Testing Library** suite (69 tests) covering the core logic and key UI:
+
+- `src/lib/date.test.ts` — recurrence engine (intervals & end conditions), relative-date helpers, formatting
+- `src/lib/selectors.test.ts` — filter/selection matching, search, sorting, grouping, Eisenhower quadrants
+- `src/store/useStore.test.ts` — task/list/folder/filter/habit reducers, recurring-task roll-forward, import/export
+- `src/components/*.test.tsx` — quick-add parsing, task interactions, and an app render/navigation smoke test
 
 ## 🧱 Tech Stack
 

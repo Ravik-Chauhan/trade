@@ -15,16 +15,18 @@ import {
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useUI } from '../store/useUI'
+import { Hourglass, X as XIcon } from 'lucide-react'
 import { cx, PRIORITY_META } from '../lib/utils'
-import type { Priority, RepeatRule } from '../types'
+import type { Priority, RepeatRule, Recurrence } from '../types'
+import { NO_RECURRENCE } from '../types'
 
 const REPEAT_OPTIONS: { value: RepeatRule; label: string }[] = [
   { value: 'none', label: 'No repeat' },
-  { value: 'daily', label: 'Every day' },
+  { value: 'daily', label: 'Daily' },
   { value: 'weekdays', label: 'Weekdays' },
-  { value: 'weekly', label: 'Every week' },
-  { value: 'monthly', label: 'Every month' },
-  { value: 'yearly', label: 'Every year' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'yearly', label: 'Yearly' },
 ]
 
 export default function TaskDetail() {
@@ -145,22 +147,6 @@ export default function TaskDetail() {
               />
             </div>
             <div className="field">
-              <label><Repeat size={15} /> Repeat</label>
-              <select value={task.repeat} onChange={(e) => updateTask(task.id, { repeat: e.target.value as RepeatRule })}>
-                {REPEAT_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label><Bell size={15} /> Reminder</label>
-              <input
-                type="datetime-local"
-                value={task.reminder ? task.reminder.slice(0, 16) : ''}
-                onChange={(e) => updateTask(task.id, { reminder: e.target.value ? e.target.value : null })}
-              />
-            </div>
-            <div className="field">
               <label><ListIcon size={15} /> List</label>
               <select
                 value={task.listId}
@@ -175,6 +161,57 @@ export default function TaskDetail() {
               </select>
             </div>
           </div>
+
+          <RecurrenceEditor
+            value={task.recurrence}
+            disabled={!task.dueDate}
+            onChange={(rec) => updateTask(task.id, { recurrence: rec })}
+          />
+
+          <div className="field" style={{ marginTop: 8 }}>
+            <label><Hourglass size={15} /> Show countdown</label>
+            <button
+              className={cx('toggle', task.countdown && 'on')}
+              disabled={!task.dueDate}
+              onClick={() => updateTask(task.id, { countdown: !task.countdown })}
+            />
+          </div>
+        </div>
+
+        <div className="detail-section">
+          <div className="detail-label"><Bell size={12} style={{ verticalAlign: -1 }} /> Reminders</div>
+          {task.reminders.map((r, i) => (
+            <div key={i} className="subtask-row">
+              <Bell size={14} style={{ color: 'var(--text-muted)' }} />
+              <input
+                className="sub-text"
+                type="datetime-local"
+                value={r.slice(0, 16)}
+                onChange={(e) => {
+                  const next = [...task.reminders]
+                  next[i] = e.target.value
+                  updateTask(task.id, { reminders: next.filter(Boolean) })
+                }}
+              />
+              <button
+                className="icon-btn"
+                style={{ width: 26, height: 26 }}
+                onClick={() => updateTask(task.id, { reminders: task.reminders.filter((_, j) => j !== i) })}
+              >
+                <XIcon size={14} />
+              </button>
+            </div>
+          ))}
+          <button
+            className="add-sub"
+            style={{ width: '100%' }}
+            onClick={() => {
+              const base = task.dueDate ? task.dueDate.slice(0, 10) : new Date().toISOString().slice(0, 10)
+              updateTask(task.id, { reminders: [...task.reminders, `${base}T09:00`] })
+            }}
+          >
+            <Plus size={16} /> Add reminder
+          </button>
         </div>
 
         <div className="detail-section">
@@ -265,6 +302,97 @@ export default function TaskDetail() {
           <Trash2 size={15} /> Delete
         </button>
       </div>
+    </div>
+  )
+}
+
+function RecurrenceEditor({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: Recurrence
+  disabled: boolean
+  onChange: (rec: Recurrence) => void
+}) {
+  const showInterval = value.rule !== 'none' && value.rule !== 'weekdays'
+  const unitLabel: Partial<Record<RepeatRule, string>> = {
+    daily: 'day(s)',
+    weekly: 'week(s)',
+    monthly: 'month(s)',
+    yearly: 'year(s)',
+  }
+  return (
+    <div style={{ marginTop: 8, opacity: disabled ? 0.5 : 1, pointerEvents: disabled ? 'none' : 'auto' }}>
+      <div className="field">
+        <label><Repeat size={15} /> Repeat</label>
+        <select
+          value={value.rule}
+          onChange={(e) => {
+            const rule = e.target.value as RepeatRule
+            if (rule === 'none') onChange({ ...NO_RECURRENCE })
+            else onChange({ ...value, rule, count: 0 })
+          }}
+        >
+          {REPEAT_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {showInterval && (
+        <div className="field" style={{ marginTop: 8 }}>
+          <label>Every</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              type="number"
+              min={1}
+              style={{ width: 60, textAlign: 'right' }}
+              value={value.interval}
+              onChange={(e) => onChange({ ...value, interval: Math.max(1, Number(e.target.value)) })}
+            />
+            <span style={{ color: 'var(--text-muted)' }}>{unitLabel[value.rule]}</span>
+          </div>
+        </div>
+      )}
+
+      {value.rule !== 'none' && (
+        <div className="field" style={{ marginTop: 8 }}>
+          <label>Ends</label>
+          <select
+            value={value.endType}
+            onChange={(e) => onChange({ ...value, endType: e.target.value as Recurrence['endType'] })}
+          >
+            <option value="never">Never</option>
+            <option value="afterCount">After N times</option>
+            <option value="onDate">On date</option>
+          </select>
+        </div>
+      )}
+
+      {value.rule !== 'none' && value.endType === 'afterCount' && (
+        <div className="field" style={{ marginTop: 8 }}>
+          <label>Occurrences</label>
+          <input
+            type="number"
+            min={1}
+            style={{ width: 70, textAlign: 'right' }}
+            value={value.endCount}
+            onChange={(e) => onChange({ ...value, endCount: Math.max(1, Number(e.target.value)) })}
+          />
+        </div>
+      )}
+
+      {value.rule !== 'none' && value.endType === 'onDate' && (
+        <div className="field" style={{ marginTop: 8 }}>
+          <label>End date</label>
+          <input
+            type="date"
+            value={value.endDate ?? ''}
+            onChange={(e) => onChange({ ...value, endDate: e.target.value || null })}
+          />
+        </div>
+      )}
     </div>
   )
 }

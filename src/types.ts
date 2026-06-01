@@ -2,7 +2,28 @@ export type Priority = 0 | 1 | 2 | 3 // none, low, medium, high
 
 export type ViewMode = 'list' | 'kanban' | 'calendar'
 
-export type RepeatRule = 'none' | 'daily' | 'weekly' | 'monthly' | 'weekdays' | 'yearly'
+export type RepeatRule = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'weekdays'
+
+export type GroupMode = 'none' | 'list' | 'priority' | 'dueDate' | 'tag'
+
+/** Structured recurrence supporting intervals and end conditions. */
+export interface Recurrence {
+  rule: RepeatRule
+  interval: number // every N units (daily/weekly/monthly/yearly)
+  endType: 'never' | 'onDate' | 'afterCount'
+  endDate: string | null
+  endCount: number // total occurrences when endType === 'afterCount'
+  count: number // occurrences already generated
+}
+
+export const NO_RECURRENCE: Recurrence = {
+  rule: 'none',
+  interval: 1,
+  endType: 'never',
+  endDate: null,
+  endCount: 10,
+  count: 0,
+}
 
 export interface Subtask {
   id: string
@@ -23,12 +44,12 @@ export interface Task {
   hasTime: boolean
   tags: string[]
   subtasks: Subtask[]
-  repeat: RepeatRule
-  reminder: string | null // ISO datetime
+  recurrence: Recurrence
+  reminders: string[] // multiple reminders (ISO datetimes)
+  countdown: boolean // show days-remaining countdown
   pinned: boolean
   order: number
   createdAt: string
-  // kanban column when a list uses board layout
   columnId?: string | null
 }
 
@@ -47,6 +68,7 @@ export interface Folder {
   id: string
   name: string
   order: number
+  collapsed: boolean
 }
 
 export interface Tag {
@@ -55,9 +77,31 @@ export interface Tag {
   color: string
 }
 
+export type DueFilter = 'any' | 'today' | 'overdue' | 'next7' | 'nodate'
+
+/** A user-defined Smart List (saved filter). */
+export interface SmartFilter {
+  id: string
+  name: string
+  emoji: string
+  color: string
+  listIds: string[] // empty = any list
+  tags: string[] // empty = any; matches if task has ANY of these
+  priorities: Priority[] // empty = any
+  due: DueFilter
+  includeCompleted: boolean
+}
+
+export type HabitFreqType = 'daily' | 'weekly'
+
+export interface HabitFrequency {
+  type: HabitFreqType
+  days: number[] // for 'daily': specific weekdays (0=Sun..6=Sat); empty = every day
+  timesPerWeek: number // for 'weekly'
+}
+
 export interface HabitLog {
-  // map of yyyy-mm-dd -> value (count of completions that day)
-  [date: string]: number
+  [date: string]: number // yyyy-mm-dd -> amount logged that day
 }
 
 export interface Habit {
@@ -65,10 +109,10 @@ export interface Habit {
   name: string
   emoji: string
   color: string
-  goal: number // target per day
+  goal: number // target amount per active day
   unit: string
-  /** which weekdays it is active on (0=Sun..6=Sat); empty = every day */
-  days: number[]
+  freq: HabitFrequency
+  reminderTime: string | null // 'HH:mm' or null
   archived: boolean
   createdAt: string
   log: HabitLog
@@ -109,6 +153,7 @@ export interface AppState {
   lists: TaskList[]
   folders: Folder[]
   tags: Tag[]
+  filters: SmartFilter[]
   habits: Habit[]
   pomodoros: PomodoroSession[]
   settings: Settings

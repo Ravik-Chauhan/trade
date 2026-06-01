@@ -18,6 +18,7 @@ export default function SettingsView() {
       lists: state.lists,
       folders: state.folders,
       tags: state.tags,
+      filters: state.filters,
       habits: state.habits,
       pomodoros: state.pomodoros,
       settings: state.settings,

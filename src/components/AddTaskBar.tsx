@@ -39,6 +39,7 @@ export default function AddTaskBar() {
   const addTask = useStore((s) => s.addTask)
   const addTag = useStore((s) => s.addTag)
   const lists = useStore((s) => s.lists)
+  const filters = useStore((s) => s.filters)
   const selection = useUI((s) => s.selection)
   const selectTask = useUI((s) => s.selectTask)
 
@@ -54,6 +55,16 @@ export default function AddTaskBar() {
       if (selection.id === 'today') dueDate = todayISO()
       if (selection.id === 'tomorrow') dueDate = format(addDays(new Date(), 1), 'yyyy-MM-dd')
       if (selection.id === 'high') priority = 3
+    }
+    if (selection.kind === 'filter') {
+      const f = filters.find((x) => x.id === selection.id)
+      if (f) {
+        if (f.listIds.length === 1) listId = f.listIds[0]
+        if (f.tags.length > 0) tags.push(...f.tags)
+        if (f.priorities.length === 1) priority = f.priorities[0]
+        if (f.due === 'today') dueDate = todayISO()
+        if (f.due === 'next7') dueDate = todayISO()
+      }
     }
     return { listId, dueDate, priority, tags }
   }

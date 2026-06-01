@@ -6,15 +6,42 @@ import { todayISO, format, addDays } from '../lib/date'
 import Modal from './Modal'
 import type { Habit } from '../types'
 
+/** A habit is "required" on a given weekday based on its frequency. */
+function isRequiredDay(habit: Habit, date: Date): boolean {
+  if (habit.freq.type === 'weekly') return true
+  if (habit.freq.days.length === 0) return true
+  return habit.freq.days.includes(date.getDay())
+}
+
 function streak(habit: Habit): number {
   let count = 0
   for (let i = 0; i < 365; i++) {
-    const key = format(addDays(new Date(), -i), 'yyyy-MM-dd')
-    if ((habit.log[key] ?? 0) >= habit.goal) count++
-    else if (i === 0) continue // today not done yet shouldn't break streak
-    else break
+    const date = addDays(new Date(), -i)
+    const key = format(date, 'yyyy-MM-dd')
+    const met = (habit.log[key] ?? 0) >= habit.goal
+    if (met) {
+      count++
+    } else if (i === 0) {
+      continue // today not logged yet shouldn't break the streak
+    } else if (habit.freq.type === 'daily' && !isRequiredDay(habit, date)) {
+      continue // skip non-required days without breaking
+    } else {
+      break
+    }
   }
   return count
+}
+
+const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+
+function freqLabel(habit: Habit): string {
+  if (habit.freq.type === 'weekly') return `${habit.freq.timesPerWeek}× per week`
+  if (habit.freq.days.length === 0 || habit.freq.days.length === 7) return 'Every day'
+  return habit.freq.days
+    .slice()
+    .sort()
+    .map((d) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d])
+    .join(', ')
 }
 
 export default function HabitView() {
@@ -56,7 +83,8 @@ export default function HabitView() {
               <div>
                 <div className="habit-name">{h.name}</div>
                 <div className="habit-streak">
-                  <Flame size={12} style={{ verticalAlign: -1, color: st > 0 ? 'var(--amber)' : undefined }} /> {st} day streak · goal {h.goal} {h.unit}/day
+                  <Flame size={12} style={{ verticalAlign: -1, color: st > 0 ? 'var(--amber)' : undefined }} /> {st} day streak · {freqLabel(h)} · {h.goal} {h.unit}
+                  {h.reminderTime && <> · ⏰ {h.reminderTime}</>}
                 </div>
               </div>
               <div className="habit-controls">
@@ -112,10 +140,24 @@ function HabitModal({ onClose }: { onClose: () => void }) {
   const [color, setColor] = useState(LIST_COLORS[0])
   const [goal, setGoal] = useState(1)
   const [unit, setUnit] = useState('time')
+  const [freqType, setFreqType] = useState<'daily' | 'weekly'>('daily')
+  const [days, setDays] = useState<number[]>([])
+  const [timesPerWeek, setTimesPerWeek] = useState(3)
+  const [reminderTime, setReminderTime] = useState('')
+
+  const toggleDay = (d: number) => setDays((arr) => (arr.includes(d) ? arr.filter((x) => x !== d) : [...arr, d]))
 
   const save = () => {
     if (!name.trim()) return
-    addHabit({ name, emoji, color, goal, unit })
+    addHabit({
+      name,
+      emoji,
+      color,
+      goal,
+      unit,
+      freq: { type: freqType, days, timesPerWeek },
+      reminderTime: reminderTime || null,
+    })
     onClose()
   }
 
@@ -143,6 +185,42 @@ function HabitModal({ onClose }: { onClose: () => void }) {
           <label className="form-label">Unit</label>
           <input className="input" value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="glasses, mins…" />
         </div>
+      </div>
+      <div>
+        <label className="form-label">Frequency</label>
+        <div className="view-switch" style={{ width: 'fit-content' }}>
+          <button className={cx(freqType === 'daily' && 'active')} onClick={() => setFreqType('daily')}>Daily</button>
+          <button className={cx(freqType === 'weekly' && 'active')} onClick={() => setFreqType('weekly')}>Weekly</button>
+        </div>
+        {freqType === 'daily' ? (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {DAY_LABELS.map((lbl, d) => (
+                <button
+                  key={d}
+                  className={cx('emoji-pick', days.includes(d) && 'active')}
+                  style={{ flex: 1 }}
+                  onClick={() => toggleDay(d)}
+                  title={['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]}
+                >
+                  {lbl}
+                </button>
+              ))}
+            </div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 6 }}>
+              {days.length === 0 ? 'No days selected = every day' : 'Active on selected weekdays'}
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+            <input className="input" type="number" min={1} max={7} style={{ width: 70 }} value={timesPerWeek} onChange={(e) => setTimesPerWeek(Math.min(7, Math.max(1, Number(e.target.value))))} />
+            <span style={{ color: 'var(--text-muted)' }}>times per week</span>
+          </div>
+        )}
+      </div>
+      <div>
+        <label className="form-label">Reminder (optional)</label>
+        <input className="input" type="time" value={reminderTime} onChange={(e) => setReminderTime(e.target.value)} />
       </div>
       <div>
         <label className="form-label">Icon</label>

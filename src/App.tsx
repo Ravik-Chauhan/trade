@@ -12,6 +12,7 @@ import HabitView from './components/HabitView'
 import PomodoroView from './components/PomodoroView'
 import StatsView from './components/StatsView'
 import SettingsView from './components/SettingsView'
+import MatrixView from './components/MatrixView'
 
 function useTheme() {
   const theme = useStore((s) => s.settings.theme)
@@ -59,6 +60,8 @@ export default function App() {
 
   const renderMain = () => {
     switch (selection.kind) {
+      case 'matrix':
+        return <MatrixView />
       case 'habits':
         return <HabitView />
       case 'focus':
@@ -72,8 +75,9 @@ export default function App() {
     }
   }
 
-  const showDetail = selectedTaskId && ['list', 'tag', 'smart'].includes(selection.kind)
+  const showDetail = selectedTaskId && ['list', 'tag', 'smart', 'filter', 'matrix'].includes(selection.kind)
   const isBoardOrCal =
+    selection.kind === 'matrix' ||
     view === 'calendar' ||
     (selection.kind === 'list' && view === 'kanban' && lists.find((l) => l.id === selection.id)?.kanban)
 

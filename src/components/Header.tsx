@@ -5,13 +5,14 @@ import {
   LayoutGrid,
   Calendar as CalIcon,
   ArrowUpDown,
+  Group as GroupIcon,
   MoreHorizontal,
   Check,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useUI } from '../store/useUI'
 import { cx } from '../lib/utils'
-import type { SortMode, ViewMode } from '../types'
+import type { SortMode, ViewMode, GroupMode } from '../types'
 
 const SMART_TITLES: Record<string, { title: string; emoji: string }> = {
   today: { title: 'Today', emoji: '☀️' },
@@ -31,11 +32,21 @@ const SORTS: { value: SortMode; label: string }[] = [
   { value: 'createdAt', label: 'Date created' },
 ]
 
+const GROUPS: { value: GroupMode; label: string }[] = [
+  { value: 'none', label: 'None' },
+  { value: 'list', label: 'List' },
+  { value: 'priority', label: 'Priority' },
+  { value: 'dueDate', label: 'Due date' },
+  { value: 'tag', label: 'Tag' },
+]
+
 export default function Header() {
-  const { selection, view, setView, sort, setSort, toggleSidebar } = useUI()
+  const { selection, view, setView, sort, setSort, group, setGroup, toggleSidebar } = useUI()
   const lists = useStore((s) => s.lists)
+  const filters = useStore((s) => s.filters)
   const tasks = useStore((s) => s.tasks)
   const [sortOpen, setSortOpen] = useState(false)
+  const [groupOpen, setGroupOpen] = useState(false)
 
   let title = ''
   let emoji = ''
@@ -58,8 +69,14 @@ export default function Header() {
   } else if (selection.kind === 'tag') {
     title = `#${selection.id}`
     isTaskView = true
+  } else if (selection.kind === 'filter') {
+    const f = filters.find((x) => x.id === selection.id)
+    title = f?.name ?? 'Smart List'
+    emoji = f?.emoji ?? '🔎'
+    isTaskView = true
   } else {
-    const map: Record<string, string> = { habits: 'Habits', focus: 'Focus', stats: 'Statistics', settings: 'Settings' }
+    const map: Record<string, string> = { matrix: 'Eisenhower Matrix', habits: 'Habits', focus: 'Focus', stats: 'Statistics', settings: 'Settings' }
+    emoji = selection.kind === 'matrix' ? '🎯' : ''
     title = map[selection.kind] ?? ''
   }
 
@@ -93,25 +110,46 @@ export default function Header() {
           </div>
 
           {view === 'list' && (
-            <div style={{ position: 'relative' }}>
-              <button className="icon-btn" onClick={() => setSortOpen((o) => !o)} title="Sort">
-                <ArrowUpDown size={17} />
-              </button>
-              {sortOpen && (
-                <>
-                  <div className="modal-backdrop" style={{ background: 'transparent' }} onClick={() => setSortOpen(false)} />
-                  <div className="ctx-menu" style={{ right: 0, top: 40, position: 'absolute' }}>
-                    <div style={{ padding: '4px 10px', color: 'var(--text-muted)', fontSize: 11, fontWeight: 700 }}>SORT BY</div>
-                    {SORTS.map((s) => (
-                      <button key={s.value} className="ctx-item" onClick={() => { setSort(s.value); setSortOpen(false) }}>
-                        {s.label}
-                        {sort === s.value && <Check size={14} style={{ marginLeft: 'auto', color: 'var(--accent)' }} />}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+            <>
+              <div style={{ position: 'relative' }}>
+                <button className={cx('icon-btn', group !== 'none' && 'active')} style={group !== 'none' ? { color: 'var(--accent)' } : undefined} onClick={() => setGroupOpen((o) => !o)} title="Group by">
+                  <GroupIcon size={17} />
+                </button>
+                {groupOpen && (
+                  <>
+                    <div className="modal-backdrop" style={{ background: 'transparent' }} onClick={() => setGroupOpen(false)} />
+                    <div className="ctx-menu" style={{ right: 0, top: 40, position: 'absolute' }}>
+                      <div style={{ padding: '4px 10px', color: 'var(--text-muted)', fontSize: 11, fontWeight: 700 }}>GROUP BY</div>
+                      {GROUPS.map((g) => (
+                        <button key={g.value} className="ctx-item" onClick={() => { setGroup(g.value); setGroupOpen(false) }}>
+                          {g.label}
+                          {group === g.value && <Check size={14} style={{ marginLeft: 'auto', color: 'var(--accent)' }} />}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+              <div style={{ position: 'relative' }}>
+                <button className="icon-btn" onClick={() => setSortOpen((o) => !o)} title="Sort">
+                  <ArrowUpDown size={17} />
+                </button>
+                {sortOpen && (
+                  <>
+                    <div className="modal-backdrop" style={{ background: 'transparent' }} onClick={() => setSortOpen(false)} />
+                    <div className="ctx-menu" style={{ right: 0, top: 40, position: 'absolute' }}>
+                      <div style={{ padding: '4px 10px', color: 'var(--text-muted)', fontSize: 11, fontWeight: 700 }}>SORT BY</div>
+                      {SORTS.map((s) => (
+                        <button key={s.value} className="ctx-item" onClick={() => { setSort(s.value); setSortOpen(false) }}>
+                          {s.label}
+                          {sort === s.value && <Check size={14} style={{ marginLeft: 'auto', color: 'var(--accent)' }} />}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
           )}
         </>
       )}

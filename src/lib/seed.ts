@@ -1,4 +1,5 @@
-import type { AppState } from '../types'
+import type { AppState, Task } from '../types'
+import { NO_RECURRENCE } from '../types'
 import { uid } from './utils'
 import { todayISO, format, addDays } from './date'
 
@@ -7,6 +8,7 @@ export function createSeedState(): AppState {
   const workId = uid('list')
   const personalId = uid('list')
   const groceriesId = uid('list')
+  const workFolder = uid('folder')
 
   const today = todayISO()
   const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd')
@@ -14,11 +16,7 @@ export function createSeedState(): AppState {
   const yesterday = format(addDays(new Date(), -1), 'yyyy-MM-dd')
 
   let order = 0
-  const t = (
-    title: string,
-    listId: string,
-    extra: Partial<AppState['tasks'][number]> = {}
-  ): AppState['tasks'][number] => ({
+  const t = (title: string, listId: string, extra: Partial<Task> = {}): Task => ({
     id: uid('task'),
     title,
     notes: '',
@@ -31,8 +29,9 @@ export function createSeedState(): AppState {
     hasTime: false,
     tags: [],
     subtasks: [],
-    repeat: 'none',
-    reminder: null,
+    recurrence: { ...NO_RECURRENCE },
+    reminders: [],
+    countdown: false,
     pinned: false,
     order: order++,
     createdAt: new Date().toISOString(),
@@ -51,15 +50,28 @@ export function createSeedState(): AppState {
       weekStartsMonday: true,
       showCompleted: false,
     },
-    folders: [],
+    folders: [{ id: workFolder, name: 'Work & Career', order: 0, collapsed: false }],
     tags: [
       { id: 'tag-focus', name: 'focus', color: '#4772fa' },
       { id: 'tag-errand', name: 'errand', color: '#36b37e' },
       { id: 'tag-urgent', name: 'urgent', color: '#e0392f' },
     ],
+    filters: [
+      {
+        id: uid('flt'),
+        name: 'Urgent & Important',
+        emoji: '🔥',
+        color: '#e0392f',
+        listIds: [],
+        tags: [],
+        priorities: [3],
+        due: 'next7',
+        includeCompleted: false,
+      },
+    ],
     lists: [
       { id: inboxId, name: 'Inbox', color: '#4772fa', emoji: '📥', folderId: null, kanban: false, columns: [], order: 0 },
-      { id: workId, name: 'Work', color: '#e0392f', emoji: '💼', folderId: null, kanban: true,
+      { id: workId, name: 'Work', color: '#e0392f', emoji: '💼', folderId: workFolder, kanban: true,
         columns: [
           { id: 'col-todo', name: 'To Do' },
           { id: 'col-doing', name: 'In Progress' },
@@ -70,12 +82,14 @@ export function createSeedState(): AppState {
     ],
     tasks: [
       t('Welcome to TickFlow! 👋 Click me to see details', inboxId, {
-        notes: 'This is your task detail panel. You can add notes, subtasks, due dates, priorities, tags and reminders here.\n\nTry the views in the top bar: List, Kanban and Calendar. Explore Habits and the Pomodoro focus timer in the sidebar.',
+        notes:
+          'This is your task detail panel. Add notes, subtasks, due dates, priorities, tags, multiple reminders and custom repeat rules here.\n\nTry the views in the top bar (List, Board, Calendar with Month/Week/Day/Agenda) and the Matrix, Habits, Focus and Stats tabs.',
         priority: 2,
       }),
-      t('Plan the week', inboxId, { dueDate: today, priority: 1 }),
+      t('Plan the week', inboxId, { dueDate: today, priority: 1, countdown: true }),
       t('Finish quarterly report', workId, {
         dueDate: tomorrow, priority: 3, columnId: 'col-doing', tags: ['focus', 'urgent'],
+        reminders: [`${tomorrow}T09:00:00`],
         subtasks: [
           { id: uid('s'), title: 'Gather metrics', done: true },
           { id: uid('s'), title: 'Write summary', done: false },
@@ -86,7 +100,10 @@ export function createSeedState(): AppState {
       t('Deploy v2.1', workId, { columnId: 'col-todo', dueDate: in3 }),
       t('Kickoff slides', workId, { columnId: 'col-done', completed: true, completedAt: new Date().toISOString() }),
       t('Call the dentist', personalId, { dueDate: yesterday, priority: 2, tags: ['errand'] }),
-      t('Morning run', personalId, { repeat: 'daily', dueDate: today, tags: ['focus'] }),
+      t('Morning run', personalId, {
+        dueDate: today, tags: ['focus'],
+        recurrence: { rule: 'daily', interval: 1, endType: 'never', endDate: null, endCount: 10, count: 0 },
+      }),
       t('Read 20 pages', personalId, { dueDate: today }),
       t('Milk', groceriesId, { tags: ['errand'] }),
       t('Avocados', groceriesId),
@@ -95,18 +112,18 @@ export function createSeedState(): AppState {
     habits: [
       {
         id: uid('habit'), name: 'Drink water', emoji: '💧', color: '#00b8d9', goal: 8, unit: 'glasses',
-        days: [], archived: false, createdAt: new Date().toISOString(),
-        log: seedLog(7, 0.7, 8),
+        freq: { type: 'daily', days: [], timesPerWeek: 7 }, reminderTime: '09:00',
+        archived: false, createdAt: new Date().toISOString(), log: seedLog(7, 0.7, 8),
       },
       {
         id: uid('habit'), name: 'Meditate', emoji: '🧘', color: '#9b51e0', goal: 1, unit: 'session',
-        days: [], archived: false, createdAt: new Date().toISOString(),
-        log: seedLog(10, 0.6, 1),
+        freq: { type: 'daily', days: [], timesPerWeek: 7 }, reminderTime: null,
+        archived: false, createdAt: new Date().toISOString(), log: seedLog(10, 0.6, 1),
       },
       {
         id: uid('habit'), name: 'Workout', emoji: '💪', color: '#e0392f', goal: 1, unit: 'session',
-        days: [1, 2, 3, 4, 5], archived: false, createdAt: new Date().toISOString(),
-        log: seedLog(14, 0.5, 1),
+        freq: { type: 'daily', days: [1, 2, 3, 4, 5], timesPerWeek: 5 }, reminderTime: '18:00',
+        archived: false, createdAt: new Date().toISOString(), log: seedLog(14, 0.5, 1),
       },
     ],
     pomodoros: [],

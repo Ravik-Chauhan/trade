@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Copy, Trash2, Flag, FolderInput, Star, CheckCircle2 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useUI } from '../store/useUI'
-import { getVisibleTasks } from '../lib/selectors'
+import { getVisibleTasks, groupTasks } from '../lib/selectors'
 import TaskItem from './TaskItem'
 import type { Task, Priority } from '../types'
 import { PRIORITY_META } from '../lib/utils'
@@ -17,14 +17,16 @@ export default function TaskListView() {
   const tasks = useStore((s) => s.tasks)
   const settings = useStore((s) => s.settings)
   const lists = useStore((s) => s.lists)
+  const filters = useStore((s) => s.filters)
   const { updateTask, deleteTask, duplicateTask, moveTask } = useStore()
-  const { selection, search, sort } = useUI()
+  const { selection, search, sort, group } = useUI()
   const [ctx, setCtx] = useState<Ctx | null>(null)
 
-  const visible = getVisibleTasks(tasks, selection, search, sort, settings.showCompleted)
+  const visible = getVisibleTasks(tasks, selection, search, sort, settings.showCompleted, filters)
   const pinned = visible.filter((t) => t.pinned && !t.completed)
   const active = visible.filter((t) => !t.pinned && !t.completed)
   const completed = visible.filter((t) => t.completed)
+  const buckets = groupTasks(active, group, lists)
 
   const openCtx = (e: React.MouseEvent, task: Task) => {
     e.preventDefault()
@@ -52,9 +54,16 @@ export default function TaskListView() {
         </>
       )}
 
-      {active.map((t) => (
-        <TaskItem key={t.id} task={t} onContext={openCtx} />
-      ))}
+      {group === 'none'
+        ? active.map((t) => <TaskItem key={t.id} task={t} onContext={openCtx} />)
+        : buckets.map((b) => (
+            <div key={b.key}>
+              {b.title && <div className="task-group-title">{b.title} · {b.tasks.length}</div>}
+              {b.tasks.map((t) => (
+                <TaskItem key={t.id} task={t} onContext={openCtx} />
+              ))}
+            </div>
+          ))}
 
       {completed.length > 0 && settings.showCompleted && selection.kind !== 'smart' && (
         <div className="task-group-title">Completed · {completed.length}</div>

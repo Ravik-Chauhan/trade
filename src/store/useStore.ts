@@ -9,12 +9,13 @@ import type {
   Settings,
   PomodoroSession,
   Priority,
-  RepeatRule,
   Subtask,
+  SmartFilter,
 } from '../types'
+import { NO_RECURRENCE } from '../types'
 import { uid } from '../lib/utils'
 import { createSeedState } from '../lib/seed'
-import { nextOccurrence, dayKey } from '../lib/date'
+import { advanceRecurrence, dayKey } from '../lib/date'
 
 interface Store extends AppState {
   // task actions
@@ -41,6 +42,10 @@ interface Store extends AppState {
   // tags
   addTag: (name: string, color?: string) => void
   deleteTag: (name: string) => void
+  // smart filters (custom smart lists)
+  addFilter: (f: Partial<SmartFilter> & { name: string }) => string
+  updateFilter: (id: string, patch: Partial<SmartFilter>) => void
+  deleteFilter: (id: string) => void
   // habits
   addHabit: (h: Partial<Habit> & { name: string }) => void
   updateHabit: (id: string, patch: Partial<Habit>) => void
@@ -79,8 +84,9 @@ export const useStore = create<Store>()(
           hasTime: partial.hasTime ?? false,
           tags: partial.tags ?? [],
           subtasks: partial.subtasks ?? [],
-          repeat: partial.repeat ?? 'none',
-          reminder: partial.reminder ?? null,
+          recurrence: partial.recurrence ?? { ...NO_RECURRENCE },
+          reminders: partial.reminders ?? [],
+          countdown: partial.countdown ?? false,
           pinned: partial.pinned ?? false,
           order: maxOrder + 1,
           createdAt: new Date().toISOString(),
@@ -99,17 +105,25 @@ export const useStore = create<Store>()(
         const task = get().tasks.find((t) => t.id === id)
         if (!task) return
         const completing = !task.completed
-        // recurring: instead of completing, roll the due date forward
-        if (completing && task.repeat !== 'none' && task.dueDate) {
-          const next = nextOccurrence(task.dueDate, task.repeat as RepeatRule)
-          set((s) => ({
-            tasks: s.tasks.map((t) =>
-              t.id === id
-                ? { ...t, dueDate: next, subtasks: t.subtasks.map((st) => ({ ...st, done: false })) }
-                : t
-            ),
-          }))
-          return
+        // recurring: instead of completing, roll the due date forward (until the
+        // series ends, at which point we fall through to a normal completion)
+        if (completing && task.recurrence.rule !== 'none' && task.dueDate) {
+          const { date, recurrence } = advanceRecurrence(task.dueDate, task.recurrence)
+          if (date) {
+            set((s) => ({
+              tasks: s.tasks.map((t) =>
+                t.id === id
+                  ? {
+                      ...t,
+                      dueDate: date,
+                      recurrence,
+                      subtasks: t.subtasks.map((st) => ({ ...st, done: false })),
+                    }
+                  : t
+              ),
+            }))
+            return
+          }
         }
         set((s) => ({
           tasks: s.tasks.map((t) =>
@@ -252,7 +266,9 @@ export const useStore = create<Store>()(
       addFolder: (name) => {
         const id = uid('folder')
         const maxOrder = Math.max(0, ...get().folders.map((f) => f.order))
-        set((s) => ({ folders: [...s.folders, { id, name: name.trim() || 'Folder', order: maxOrder + 1 }] }))
+        set((s) => ({
+          folders: [...s.folders, { id, name: name.trim() || 'Folder', order: maxOrder + 1, collapsed: false }],
+        }))
         return id
       },
 
@@ -280,6 +296,32 @@ export const useStore = create<Store>()(
           tasks: s.tasks.map((t) => ({ ...t, tags: t.tags.filter((x) => x !== name) })),
         })),
 
+      addFilter: (f) => {
+        const id = uid('flt')
+        set((s) => ({
+          filters: [
+            ...s.filters,
+            {
+              id,
+              name: f.name.trim() || 'Smart List',
+              emoji: f.emoji ?? '🔎',
+              color: f.color ?? '#4772fa',
+              listIds: f.listIds ?? [],
+              tags: f.tags ?? [],
+              priorities: f.priorities ?? [],
+              due: f.due ?? 'any',
+              includeCompleted: f.includeCompleted ?? false,
+            },
+          ],
+        }))
+        return id
+      },
+
+      updateFilter: (id, patch) =>
+        set((s) => ({ filters: s.filters.map((f) => (f.id === id ? { ...f, ...patch } : f)) })),
+
+      deleteFilter: (id) => set((s) => ({ filters: s.filters.filter((f) => f.id !== id) })),
+
       addHabit: (h) =>
         set((s) => ({
           habits: [
@@ -291,7 +333,8 @@ export const useStore = create<Store>()(
               color: h.color ?? '#4772fa',
               goal: h.goal ?? 1,
               unit: h.unit ?? 'time',
-              days: h.days ?? [],
+              freq: h.freq ?? { type: 'daily', days: [], timesPerWeek: 7 },
+              reminderTime: h.reminderTime ?? null,
               archived: false,
               createdAt: new Date().toISOString(),
               log: {},
@@ -338,7 +381,41 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'tickflow-store-v1',
-      version: 1,
+      version: 2,
+      // migrate older persisted shapes (single reminder / string repeat) forward
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as Record<string, unknown>
+        if (!state) return state as never
+        if (version < 2) {
+          const tasks = (state.tasks as Record<string, unknown>[] | undefined) ?? []
+          state.tasks = tasks.map((t) => {
+            const out = { ...t } as Record<string, unknown>
+            if (!('reminders' in out)) out.reminders = out.reminder ? [out.reminder] : []
+            delete out.reminder
+            if (typeof out.recurrence === 'undefined') {
+              const rule = (out.repeat as string) ?? 'none'
+              out.recurrence = { ...NO_RECURRENCE, rule }
+            }
+            delete out.repeat
+            if (typeof out.countdown === 'undefined') out.countdown = false
+            return out
+          })
+          const habits = (state.habits as Record<string, unknown>[] | undefined) ?? []
+          state.habits = habits.map((h) => {
+            const out = { ...h } as Record<string, unknown>
+            if (!out.freq) {
+              out.freq = { type: 'daily', days: (out.days as number[]) ?? [], timesPerWeek: 7 }
+            }
+            delete out.days
+            if (typeof out.reminderTime === 'undefined') out.reminderTime = null
+            return out
+          })
+          const folders = (state.folders as Record<string, unknown>[] | undefined) ?? []
+          state.folders = folders.map((f) => ({ collapsed: false, ...f }))
+          if (!state.filters) state.filters = []
+        }
+        return state as never
+      },
     }
   )
 )

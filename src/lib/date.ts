@@ -12,7 +12,7 @@ import {
   addYears,
   differenceInCalendarDays,
 } from 'date-fns'
-import type { RepeatRule } from '../types'
+import type { RepeatRule, Recurrence } from '../types'
 
 export const todayISO = (): string => format(new Date(), 'yyyy-MM-dd')
 
@@ -62,22 +62,23 @@ export function isDueTomorrow(value: string | null): boolean {
   return isTomorrow(parseISO(value))
 }
 
-/** Compute the next occurrence date for a recurring task after completion. */
-export function nextOccurrence(value: string, rule: RepeatRule): string {
+/** Compute the raw next date for a repeat rule, honoring an interval. */
+export function stepDate(value: string, rule: RepeatRule, interval = 1): string {
   const d = parseISO(value)
+  const n = Math.max(1, interval)
   let next: Date
   switch (rule) {
     case 'daily':
-      next = addDays(d, 1)
+      next = addDays(d, n)
       break
     case 'weekly':
-      next = addWeeks(d, 1)
+      next = addWeeks(d, n)
       break
     case 'monthly':
-      next = addMonths(d, 1)
+      next = addMonths(d, n)
       break
     case 'yearly':
-      next = addYears(d, 1)
+      next = addYears(d, n)
       break
     case 'weekdays': {
       next = addDays(d, 1)
@@ -87,9 +88,59 @@ export function nextOccurrence(value: string, rule: RepeatRule): string {
     default:
       return value
   }
-  // preserve time portion if present
   const hasTime = value.length > 10
   return hasTime ? next.toISOString() : format(next, 'yyyy-MM-dd')
+}
+
+/** @deprecated kept for compatibility — single-step advance. */
+export function nextOccurrence(value: string, rule: RepeatRule): string {
+  return stepDate(value, rule, 1)
+}
+
+export interface AdvanceResult {
+  date: string | null // null when the series has ended
+  recurrence: Recurrence
+}
+
+/**
+ * Advance a recurring task to its next occurrence, applying interval and end
+ * conditions. Returns `date: null` when the recurrence has finished, signalling
+ * the caller to actually complete the task.
+ */
+export function advanceRecurrence(value: string, rec: Recurrence): AdvanceResult {
+  if (rec.rule === 'none') return { date: null, recurrence: rec }
+  const next = stepDate(value, rec.rule, rec.interval)
+  const newCount = rec.count + 1
+
+  if (rec.endType === 'afterCount' && newCount >= rec.endCount) {
+    return { date: null, recurrence: { ...rec, count: newCount } }
+  }
+  if (rec.endType === 'onDate' && rec.endDate) {
+    const nextDay = next.slice(0, 10)
+    if (nextDay > rec.endDate) {
+      return { date: null, recurrence: { ...rec, count: newCount } }
+    }
+  }
+  return { date: next, recurrence: { ...rec, count: newCount } }
+}
+
+export function recurrenceLabel(rec: Recurrence): string {
+  if (rec.rule === 'none') return 'No repeat'
+  const unit: Record<RepeatRule, string> = {
+    none: '',
+    daily: 'day',
+    weekly: 'week',
+    monthly: 'month',
+    yearly: 'year',
+    weekdays: 'weekday',
+  }
+  let base: string
+  if (rec.rule === 'weekdays') base = 'Every weekday'
+  else if (rec.interval === 1) base = `Every ${unit[rec.rule]}`
+  else base = `Every ${rec.interval} ${unit[rec.rule]}s`
+  if (rec.endType === 'afterCount') base += ` · ${rec.endCount}×`
+  if (rec.endType === 'onDate' && rec.endDate) base += ` · until ${rec.endDate}`
+  return base
 }
 
 export { format, parseISO, isToday, addDays, startOfDay }
