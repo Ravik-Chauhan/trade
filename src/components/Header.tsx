@@ -1,0 +1,126 @@
+import { useState } from 'react'
+import {
+  Menu,
+  List as ListIcon,
+  LayoutGrid,
+  Calendar as CalIcon,
+  ArrowUpDown,
+  MoreHorizontal,
+  Check,
+} from 'lucide-react'
+import { useStore } from '../store/useStore'
+import { useUI } from '../store/useUI'
+import { cx } from '../lib/utils'
+import type { SortMode, ViewMode } from '../types'
+
+const SMART_TITLES: Record<string, { title: string; emoji: string }> = {
+  today: { title: 'Today', emoji: '☀️' },
+  tomorrow: { title: 'Tomorrow', emoji: '🌅' },
+  next7: { title: 'Next 7 Days', emoji: '🗓️' },
+  inbox: { title: 'Inbox', emoji: '📥' },
+  all: { title: 'All Tasks', emoji: '🗂️' },
+  completed: { title: 'Completed', emoji: '✅' },
+  high: { title: 'High Priority', emoji: '🔥' },
+}
+
+const SORTS: { value: SortMode; label: string }[] = [
+  { value: 'manual', label: 'Manual' },
+  { value: 'dueDate', label: 'Due date' },
+  { value: 'priority', label: 'Priority' },
+  { value: 'title', label: 'Title' },
+  { value: 'createdAt', label: 'Date created' },
+]
+
+export default function Header() {
+  const { selection, view, setView, sort, setSort, toggleSidebar } = useUI()
+  const lists = useStore((s) => s.lists)
+  const tasks = useStore((s) => s.tasks)
+  const [sortOpen, setSortOpen] = useState(false)
+
+  let title = ''
+  let emoji = ''
+  let subtitle = ''
+  let isTaskView = false
+
+  if (selection.kind === 'smart') {
+    const meta = SMART_TITLES[selection.id]
+    title = meta?.title ?? 'Tasks'
+    emoji = meta?.emoji ?? ''
+    isTaskView = true
+    const count = tasks.filter((t) => !t.completed).length
+    if (selection.id === 'today') subtitle = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
+    else if (selection.id === 'all') subtitle = `${count} active`
+  } else if (selection.kind === 'list') {
+    const list = lists.find((l) => l.id === selection.id)
+    title = list?.name ?? 'List'
+    emoji = list?.emoji ?? ''
+    isTaskView = true
+  } else if (selection.kind === 'tag') {
+    title = `#${selection.id}`
+    isTaskView = true
+  } else {
+    const map: Record<string, string> = { habits: 'Habits', focus: 'Focus', stats: 'Statistics', settings: 'Settings' }
+    title = map[selection.kind] ?? ''
+  }
+
+  const currentList = selection.kind === 'list' ? lists.find((l) => l.id === selection.id) : null
+  const views: { v: ViewMode; icon: typeof ListIcon; label: string }[] = [
+    { v: 'list', icon: ListIcon, label: 'List' },
+    ...(currentList?.kanban ? [{ v: 'kanban' as ViewMode, icon: LayoutGrid, label: 'Board' }] : []),
+    { v: 'calendar', icon: CalIcon, label: 'Calendar' },
+  ]
+
+  return (
+    <div className="header">
+      <button className="icon-btn menu-toggle" onClick={toggleSidebar} aria-label="Menu">
+        <Menu size={20} />
+      </button>
+      <h1>
+        {emoji && <span>{emoji}</span>}
+        {title}
+      </h1>
+      {subtitle && <span className="subtitle">{subtitle}</span>}
+      <div className="header-spacer" />
+
+      {isTaskView && (
+        <>
+          <div className="view-switch">
+            {views.map(({ v, icon: Icon, label }) => (
+              <button key={v} className={cx(view === v && 'active')} onClick={() => setView(v)} title={label}>
+                <Icon size={15} />
+              </button>
+            ))}
+          </div>
+
+          {view === 'list' && (
+            <div style={{ position: 'relative' }}>
+              <button className="icon-btn" onClick={() => setSortOpen((o) => !o)} title="Sort">
+                <ArrowUpDown size={17} />
+              </button>
+              {sortOpen && (
+                <>
+                  <div className="modal-backdrop" style={{ background: 'transparent' }} onClick={() => setSortOpen(false)} />
+                  <div className="ctx-menu" style={{ right: 0, top: 40, position: 'absolute' }}>
+                    <div style={{ padding: '4px 10px', color: 'var(--text-muted)', fontSize: 11, fontWeight: 700 }}>SORT BY</div>
+                    {SORTS.map((s) => (
+                      <button key={s.value} className="ctx-item" onClick={() => { setSort(s.value); setSortOpen(false) }}>
+                        {s.label}
+                        {sort === s.value && <Check size={14} style={{ marginLeft: 'auto', color: 'var(--accent)' }} />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {!isTaskView && (
+        <button className="icon-btn" title="More">
+          <MoreHorizontal size={18} />
+        </button>
+      )}
+    </div>
+  )
+}
