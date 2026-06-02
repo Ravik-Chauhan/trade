@@ -33,26 +33,62 @@ export function showNotification(title: string, body: string): boolean {
 
 let audioCtx: AudioContext | null = null
 
-export function chime() {
+function getCtx(): AudioContext | null {
   try {
     audioCtx ??= new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
-    const ctx = audioCtx
-    if (ctx.state === 'suspended') ctx.resume()
-    const now = ctx.currentTime
-    ;[880, 1175].forEach((freq, i) => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.frequency.value = freq
-      const start = now + i * 0.18
-      gain.gain.setValueAtTime(0.0001, start)
-      gain.gain.exponentialRampToValueAtTime(0.25, start + 0.02)
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.4)
-      osc.start(start)
-      osc.stop(start + 0.42)
-    })
+    return audioCtx
   } catch {
-    /* ignore */
+    return null
   }
+}
+
+/** Resume the audio context. Call from a user gesture to unlock playback. */
+export function ensureAudioReady() {
+  const ctx = getCtx()
+  if (ctx && ctx.state === 'suspended') void ctx.resume()
+}
+
+/**
+ * Browsers block WebAudio until the user interacts with the page. Install
+ * one-time listeners so the audio context is unlocked on the first gesture —
+ * that way an auto-fired reminder (from the polling timer) can still chime.
+ */
+export function installAudioUnlock() {
+  if (typeof window === 'undefined') return
+  const unlock = () => {
+    ensureAudioReady()
+    window.removeEventListener('pointerdown', unlock)
+    window.removeEventListener('keydown', unlock)
+    window.removeEventListener('touchstart', unlock)
+  }
+  window.addEventListener('pointerdown', unlock)
+  window.addEventListener('keydown', unlock)
+  window.addEventListener('touchstart', unlock)
+}
+
+export function chime() {
+  const ctx = getCtx()
+  if (!ctx) return
+  const play = () => {
+    try {
+      const now = ctx.currentTime
+      ;[880, 1175].forEach((freq, i) => {
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.frequency.value = freq
+        const start = now + i * 0.18
+        gain.gain.setValueAtTime(0.0001, start)
+        gain.gain.exponentialRampToValueAtTime(0.25, start + 0.02)
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.4)
+        osc.start(start)
+        osc.stop(start + 0.42)
+      })
+    } catch {
+      /* ignore */
+    }
+  }
+  if (ctx.state === 'suspended') ctx.resume().then(play).catch(() => {})
+  else play()
 }

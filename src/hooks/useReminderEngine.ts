@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useStore } from '../store/useStore'
 import { useToasts } from '../store/useToasts'
 import { collectReminders, dueReminders } from '../lib/reminders'
-import { showNotification, chime } from '../lib/notifications'
+import { showNotification, chime, installAudioUnlock } from '../lib/notifications'
 
 const FIRED_KEY = 'tickflow-fired-reminders'
 const CHECK_MS = 15000
@@ -36,6 +36,7 @@ export function useReminderEngine() {
 
   useEffect(() => {
     const fired = firedRef.current
+    installAudioUnlock() // unlock chime on first user interaction
 
     const tick = (silent: boolean) => {
       const { tasks, habits } = useStore.getState()
