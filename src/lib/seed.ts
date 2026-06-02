@@ -20,6 +20,7 @@ export function createSeedState(): AppState {
     id: uid('task'),
     title,
     notes: '',
+    kind: 'task',
     listId,
     completed: false,
     completedAt: null,
@@ -103,6 +104,11 @@ export function createSeedState(): AppState {
       t('Deploy v2.1', workId, { columnId: 'col-todo', dueDate: in3 }),
       t('Kickoff slides', workId, { columnId: 'col-done', completed: true, completedAt: new Date().toISOString() }),
       medsTask(personalId, order++),
+      t('Trip packing ideas', personalId, {
+        kind: 'note',
+        notes: 'Passport & charger\nNoise-cancelling headphones\nBook for the flight\nRefill prescriptions before leaving\n\nNotes have no checkbox or due date — they just hold free-form text.',
+        tags: ['ideas'],
+      }),
       t('Call the dentist', personalId, { dueDate: yesterday, priority: 2, tags: ['errand'] }),
       t('Morning run', personalId, {
         dueDate: today, tags: ['focus'],
@@ -149,6 +155,7 @@ function medsTask(listId: string, order: number): Task {
     id: uid('task'),
     title: 'Take medication',
     notes: 'Track morning and evening doses. Open this task to see the monthly calendar of which days/times you took it.',
+    kind: 'task',
     listId,
     completed: false,
     completedAt: null,

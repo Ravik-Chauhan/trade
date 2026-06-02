@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, CheckSquare, StickyNote } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useUI } from '../store/useUI'
 import type { Priority } from '../types'
+import { cx } from '../lib/utils'
 import { todayISO, format, addDays } from '../lib/date'
 
 /** Parse quick-add syntax: "#tag" tags, "!1/!2/!3" priority, date keywords. */
@@ -36,12 +37,17 @@ function parseQuickAdd(raw: string) {
 
 export default function AddTaskBar() {
   const [value, setValue] = useState('')
+  const [mode, setMode] = useState<'task' | 'note'>('task')
   const addTask = useStore((s) => s.addTask)
   const addTag = useStore((s) => s.addTag)
   const lists = useStore((s) => s.lists)
   const filters = useStore((s) => s.filters)
   const selection = useUI((s) => s.selection)
   const selectTask = useUI((s) => s.selectTask)
+
+  // In the Notes view we always add notes; elsewhere the toggle decides.
+  const notesView = selection.kind === 'smart' && selection.id === 'notes'
+  const kind: 'task' | 'note' = notesView ? 'note' : mode
 
   // figure out which list & defaults the new task should belong to
   const defaults = () => {
@@ -75,28 +81,61 @@ export default function AddTaskBar() {
     const d = defaults()
     const tags = Array.from(new Set([...d.tags, ...parsed.tags]))
     tags.forEach((t) => addTag(t))
-    const list = lists.find((l) => l.id === d.listId)
-    const id = addTask({
-      title: parsed.title || 'Untitled task',
-      listId: d.listId,
-      dueDate: parsed.dueDate ?? d.dueDate,
-      priority: parsed.priority || d.priority,
-      tags,
-      columnId: list?.kanban ? list.columns[0]?.id ?? null : null,
-    })
+    // notes live in the current list (or Inbox in the Notes view) and ignore
+    // task-only quick-add bits like due date / priority.
+    const listId = notesView ? 'inbox' : d.listId
+    const list = lists.find((l) => l.id === listId)
+    const id = addTask(
+      kind === 'note'
+        ? { title: parsed.title || 'Untitled note', kind: 'note', listId, tags }
+        : {
+            title: parsed.title || 'Untitled task',
+            listId,
+            dueDate: parsed.dueDate ?? d.dueDate,
+            priority: parsed.priority || d.priority,
+            tags,
+            columnId: list?.kanban ? list.columns[0]?.id ?? null : null,
+          }
+    )
     selectTask(id)
     setValue('')
   }
 
   return (
     <div className="add-bar">
-      <Plus size={18} style={{ color: 'var(--accent)' }} />
+      {kind === 'note' ? (
+        <StickyNote size={18} style={{ color: 'var(--accent)' }} />
+      ) : (
+        <Plus size={18} style={{ color: 'var(--accent)' }} />
+      )}
       <input
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && submit()}
-        placeholder='Add a task — try "Submit report tomorrow #work !2"'
+        placeholder={
+          kind === 'note'
+            ? 'Add a note…'
+            : 'Add a task — try "Submit report tomorrow #work !2"'
+        }
       />
+      {!notesView && (
+        <div className="addbar-toggle" role="group" aria-label="New item type">
+          <button
+            className={cx(mode === 'task' && 'active')}
+            onClick={() => setMode('task')}
+            title="Add as task"
+          >
+            <CheckSquare size={14} /> Task
+          </button>
+          <button
+            className={cx(mode === 'note' && 'active')}
+            onClick={() => setMode('note')}
+            title="Add as note"
+          >
+            <StickyNote size={14} /> Note
+          </button>
+        </div>
+      )}
       <span className="hint">Enter ↵</span>
     </div>
   )

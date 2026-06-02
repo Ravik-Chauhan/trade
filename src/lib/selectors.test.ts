@@ -19,6 +19,7 @@ function makeTask(over: Partial<Task> = {}): Task {
     id: 't' + seq,
     title: 'Task ' + seq,
     notes: '',
+    kind: 'task',
     listId: 'inbox',
     completed: false,
     completedAt: null,
@@ -49,6 +50,33 @@ beforeEach(() => {
   vi.setSystemTime(new Date('2026-06-01T12:00:00'))
 })
 afterEach(() => vi.useRealTimers())
+
+describe('notes (note-type items)', () => {
+  it('appear only in the Notes smart view, their list, and by tag', () => {
+    const note = makeTask({ kind: 'note', listId: 'work', tags: ['ideas'] })
+    expect(matchesSelection(note, { kind: 'smart', id: 'notes' })).toBe(true)
+    expect(matchesSelection(note, { kind: 'list', id: 'work' })).toBe(true)
+    expect(matchesSelection(note, { kind: 'tag', id: 'ideas' })).toBe(true)
+  })
+  it('are excluded from task-centric smart lists', () => {
+    const note = makeTask({ kind: 'note', dueDate: '2026-06-01', priority: 3 })
+    expect(matchesSelection(note, { kind: 'smart', id: 'today' })).toBe(false)
+    expect(matchesSelection(note, { kind: 'smart', id: 'all' })).toBe(false)
+    expect(matchesSelection(note, { kind: 'smart', id: 'high' })).toBe(false)
+    expect(matchesSelection(note, { kind: 'smart', id: 'completed' })).toBe(false)
+  })
+  it('a note in Inbox shows in the Inbox view', () => {
+    const note = makeTask({ kind: 'note', listId: 'inbox' })
+    expect(matchesSelection(note, { kind: 'smart', id: 'inbox' })).toBe(true)
+  })
+  it('tasks never match the Notes view', () => {
+    expect(matchesSelection(makeTask(), { kind: 'smart', id: 'notes' })).toBe(false)
+  })
+  it('notes are excluded from custom filters', () => {
+    const f = { id: 'f1', name: 'F', listIds: [], priorities: [], tags: [], due: 'any', includeCompleted: true } as SmartFilter
+    expect(matchesFilter(makeTask({ kind: 'note' }), f)).toBe(false)
+  })
+})
 
 describe('matchesSelection', () => {
   it('matches list and tag selections', () => {

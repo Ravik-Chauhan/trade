@@ -23,6 +23,7 @@ import {
   ChevronRight,
   Folder as FolderIcon,
   FolderPlus,
+  StickyNote,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useUI, type Selection } from '../store/useUI'
@@ -38,6 +39,7 @@ const SMART = [
   { id: 'inbox', label: 'Inbox', icon: Inbox },
   { id: 'high', label: 'High Priority', icon: AlertOctagon },
   { id: 'all', label: 'All Tasks', icon: Layers },
+  { id: 'notes', label: 'Notes', icon: StickyNote },
   { id: 'completed', label: 'Completed', icon: CheckCircle2 },
 ] as const
 

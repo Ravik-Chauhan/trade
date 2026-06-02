@@ -1059,6 +1059,50 @@ select {
   font-size: 12px;
 }
 
+/* ---------------- Notes (note-type items) ---------------- */
+.note-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 16%, transparent);
+}
+.note-snippet {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.addbar-toggle {
+  display: inline-flex;
+  gap: 2px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  flex-shrink: 0;
+}
+.addbar-toggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: calc(var(--radius-sm) - 2px);
+  color: var(--text-muted);
+}
+.addbar-toggle button.active {
+  background: var(--accent);
+  color: #fff;
+}
+
 /* ---------------- Task tracking calendar ---------------- */
 .track-grid {
   display: grid;

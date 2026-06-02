@@ -1,5 +1,5 @@
 import { useState, type DragEvent } from 'react'
-import { Check, Calendar, Repeat, Star, Flag, ListChecks, Bell, Hourglass, CalendarCheck } from 'lucide-react'
+import { Check, Calendar, Repeat, Star, Flag, ListChecks, Bell, Hourglass, CalendarCheck, StickyNote } from 'lucide-react'
 import type { Task } from '../types'
 import { useStore } from '../store/useStore'
 import { useUI } from '../store/useUI'
@@ -34,8 +34,10 @@ export default function TaskItem({ task, onContext }: Props) {
   const doneSubs = task.subtasks.filter((s) => s.done).length
   const list = lists.find((l) => l.id === task.listId)
   const today = todayISO()
+  const isNote = task.kind === 'note'
   const prog = task.trackingEnabled ? dayProgress(task, today) : null
   const trackingComplete = prog ? prog.total > 0 && prog.done === prog.total : false
+  const noteSnippet = isNote ? task.notes.trim().split('\n').filter(Boolean).slice(0, 2).join(' · ') : ''
 
   const onDragStart = (e: DragEvent) => {
     e.dataTransfer.setData('text/task-id', task.id)
@@ -62,7 +64,11 @@ export default function TaskItem({ task, onContext }: Props) {
       onDragLeave={() => setDropping(false)}
       onDrop={onDrop}
     >
-      {task.trackingEnabled ? (
+      {isNote ? (
+        <span className="note-badge" aria-label="Note">
+          <StickyNote size={15} />
+        </span>
+      ) : task.trackingEnabled ? (
         <span className={cx('track-badge', trackingComplete && 'complete')} title="Today's progress" aria-label="Daily tracking">
           {trackingComplete ? <Check size={11} strokeWidth={3} /> : `${prog!.done}/${prog!.total}`}
         </span>
@@ -84,6 +90,8 @@ export default function TaskItem({ task, onContext }: Props) {
           {task.trackingEnabled && <CalendarCheck size={13} style={{ verticalAlign: -2, marginRight: 5, color: 'var(--accent)' }} />}
           {task.title}
         </div>
+
+        {isNote && noteSnippet && <div className="note-snippet">{noteSnippet}</div>}
 
         {task.trackingEnabled && (
           <div className="slot-chips">

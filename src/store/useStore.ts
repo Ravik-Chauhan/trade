@@ -80,6 +80,7 @@ export const useStore = create<Store>()(
           id,
           title: partial.title.trim(),
           notes: partial.notes ?? '',
+          kind: partial.kind ?? 'task',
           listId: partial.listId,
           completed: false,
           completedAt: null,
@@ -412,11 +413,15 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'tickflow-store-v1',
-      version: 3,
+      version: 4,
       // migrate older persisted shapes (single reminder / string repeat) forward
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>
         if (!state) return state as never
+        if (version < 4) {
+          const tasks = (state.tasks as Record<string, unknown>[] | undefined) ?? []
+          state.tasks = tasks.map((t) => ({ kind: 'task', ...t }))
+        }
         if (version < 3) {
           const tasks = (state.tasks as Record<string, unknown>[] | undefined) ?? []
           state.tasks = tasks.map((t) => ({

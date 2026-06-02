@@ -42,6 +42,7 @@ export interface Task {
   id: string
   title: string
   notes: string
+  kind: 'task' | 'note'
   listId: string
   completed: boolean
   completedAt: string | null

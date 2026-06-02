@@ -10,6 +10,7 @@ export interface Bucket {
 }
 
 export function matchesFilter(task: Task, f: SmartFilter): boolean {
+  if (task.kind === 'note') return false // custom smart lists are task-centric
   if (!f.includeCompleted && task.completed) return false
   if (f.listIds.length > 0 && !f.listIds.includes(task.listId)) return false
   if (f.priorities.length > 0 && !f.priorities.includes(task.priority)) return false
@@ -43,7 +44,11 @@ export function matchesSelection(task: Task, sel: Selection, filters: SmartFilte
       const f = filters.find((x) => x.id === sel.id)
       return f ? matchesFilter(task, f) : false
     }
-    case 'smart':
+    case 'smart': {
+      // the Notes view is the only smart list that shows notes; every other
+      // smart list is task-centric (dates, priority, completion).
+      if (sel.id === 'notes') return task.kind === 'note'
+      if (task.kind === 'note') return sel.id === 'inbox' && task.listId === 'inbox'
       switch (sel.id) {
         case 'today':
           return task.trackingEnabled || isDueToday(task.dueDate) || (isOverdue(task.dueDate) && !task.completed)
@@ -62,6 +67,7 @@ export function matchesSelection(task: Task, sel: Selection, filters: SmartFilte
         default:
           return false
       }
+    }
     default:
       return false
   }

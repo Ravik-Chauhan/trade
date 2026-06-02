@@ -20,6 +20,7 @@ const SMART_TITLES: Record<string, { title: string; emoji: string }> = {
   next7: { title: 'Next 7 Days', emoji: '🗓️' },
   inbox: { title: 'Inbox', emoji: '📥' },
   all: { title: 'All Tasks', emoji: '🗂️' },
+  notes: { title: 'Notes', emoji: '📝' },
   completed: { title: 'Completed', emoji: '✅' },
   high: { title: 'High Priority', emoji: '🔥' },
 }

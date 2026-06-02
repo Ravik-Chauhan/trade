@@ -115,6 +115,24 @@ describe('subtasks', () => {
   })
 })
 
+describe('notes', () => {
+  it('defaults new items to task kind', () => {
+    const id = S().addTask({ title: 'A task', listId: 'inbox' })
+    expect(S().tasks.find((t) => t.id === id)!.kind).toBe('task')
+  })
+  it('creates note-type items and they are never completed by default', () => {
+    const id = S().addTask({ title: 'My note', kind: 'note', listId: 'inbox', notes: 'body' })
+    const note = S().tasks.find((t) => t.id === id)!
+    expect(note.kind).toBe('note')
+    expect(note.completed).toBe(false)
+  })
+  it('can convert a task into a note', () => {
+    const id = S().addTask({ title: 'Convert me', listId: 'inbox' })
+    S().updateTask(id, { kind: 'note' })
+    expect(S().tasks.find((t) => t.id === id)!.kind).toBe('note')
+  })
+})
+
 describe('daily tracking', () => {
   it('enabling tracking seeds a default slot', () => {
     const id = S().addTask({ title: 'Meds', listId: 'inbox' })

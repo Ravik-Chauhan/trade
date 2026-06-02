@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useUI } from '../store/useUI'
-import { Hourglass, X as XIcon, CalendarCheck, Flame } from 'lucide-react'
+import { Hourglass, X as XIcon, CalendarCheck, Flame, StickyNote, CheckSquare } from 'lucide-react'
 import { cx, PRIORITY_META } from '../lib/utils'
 import type { Priority, RepeatRule, Recurrence, Task } from '../types'
 import { NO_RECURRENCE } from '../types'
@@ -60,6 +60,7 @@ export default function TaskDetail() {
 
   if (!task) return null
 
+  const isNote = task.kind === 'note'
   const close = () => selectTask(null)
   const dateValue = task.dueDate ? task.dueDate.slice(0, 10) : ''
   const timeValue = task.hasTime && task.dueDate ? task.dueDate.slice(11, 16) : ''
@@ -89,14 +90,18 @@ export default function TaskDetail() {
   return (
     <div className="detail">
       <div className="detail-header">
-        <button
-          className={cx('checkbox', task.priority ? `p${task.priority}` : '', task.completed && 'checked')}
-          onClick={() => toggleTask(task.id)}
-        >
-          {task.completed && <Check size={13} strokeWidth={3} />}
-        </button>
+        {isNote ? (
+          <span className="note-badge" aria-label="Note"><StickyNote size={15} /></span>
+        ) : (
+          <button
+            className={cx('checkbox', task.priority ? `p${task.priority}` : '', task.completed && 'checked')}
+            onClick={() => toggleTask(task.id)}
+          >
+            {task.completed && <Check size={13} strokeWidth={3} />}
+          </button>
+        )}
         <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-          {task.completed ? 'Completed' : 'Task'}
+          {isNote ? 'Note' : task.completed ? 'Completed' : 'Task'}
         </span>
         <div style={{ flex: 1 }} />
         <button
@@ -119,20 +124,37 @@ export default function TaskDetail() {
             value={task.title}
             rows={1}
             onChange={(e) => updateTask(task.id, { title: e.target.value })}
-            placeholder="Task name"
+            placeholder={isNote ? 'Note title' : 'Task name'}
           />
+        </div>
+
+        <div className="addbar-toggle" style={{ marginTop: 12 }} role="group" aria-label="Item type">
+          <button
+            className={cx(!isNote && 'active')}
+            onClick={() => updateTask(task.id, { kind: 'task' })}
+          >
+            <CheckSquare size={14} /> Task
+          </button>
+          <button
+            className={cx(isNote && 'active')}
+            onClick={() => updateTask(task.id, { kind: 'note' })}
+          >
+            <StickyNote size={14} /> Note
+          </button>
         </div>
 
         <div className="detail-section">
-          <div className="detail-label">Notes</div>
+          <div className="detail-label">{isNote ? 'Content' : 'Notes'}</div>
           <textarea
             className="notes-area"
+            style={isNote ? { minHeight: 240 } : undefined}
             value={task.notes}
             onChange={(e) => updateTask(task.id, { notes: e.target.value })}
-            placeholder="Add notes, links, or details…"
+            placeholder={isNote ? 'Write your note…' : 'Add notes, links, or details…'}
           />
         </div>
 
+        {!isNote && (<>
         <TrackingSection task={task} />
 
         {!task.trackingEnabled && (<>
@@ -271,6 +293,7 @@ export default function TaskDetail() {
             />
           </div>
         </div>
+        </>)}
 
         <div className="detail-section">
           <div className="detail-label"><Hash size={12} style={{ verticalAlign: -1 }} /> Tags</div>
