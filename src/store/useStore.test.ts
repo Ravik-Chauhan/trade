@@ -115,6 +115,30 @@ describe('subtasks', () => {
   })
 })
 
+describe('daily tracking', () => {
+  it('enabling tracking seeds a default slot', () => {
+    const id = S().addTask({ title: 'Meds', listId: 'inbox' })
+    S().setTracking(id, true)
+    const t = S().tasks.find((x) => x.id === id)!
+    expect(t.trackingEnabled).toBe(true)
+    expect(t.slots.length).toBe(1)
+  })
+
+  it('setSlots replaces the slot list', () => {
+    const id = S().addTask({ title: 'Meds', listId: 'inbox' })
+    S().setSlots(id, [{ id: 'm', label: 'Morning', time: '08:00' }, { id: 'e', label: 'Evening', time: '20:00' }])
+    expect(S().tasks.find((x) => x.id === id)!.slots.length).toBe(2)
+  })
+
+  it('toggleSlot records and clears a slot for a day', () => {
+    const id = S().addTask({ title: 'Meds', listId: 'inbox', trackingEnabled: true, slots: [{ id: 'm', label: 'Morning', time: null }] })
+    S().toggleSlot(id, '2026-06-02', 'm')
+    expect(S().tasks.find((x) => x.id === id)!.completionLog['2026-06-02']).toEqual(['m'])
+    S().toggleSlot(id, '2026-06-02', 'm')
+    expect(S().tasks.find((x) => x.id === id)!.completionLog['2026-06-02']).toBeUndefined()
+  })
+})
+
 describe('lists & folders', () => {
   it('deleting a list reassigns its tasks to inbox', () => {
     const listId = S().addList('Work')

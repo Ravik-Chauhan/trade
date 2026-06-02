@@ -32,6 +32,9 @@ export function createSeedState(): AppState {
     recurrence: { ...NO_RECURRENCE },
     reminders: [],
     countdown: false,
+    trackingEnabled: false,
+    slots: [],
+    completionLog: {},
     pinned: false,
     order: order++,
     createdAt: new Date().toISOString(),
@@ -99,6 +102,7 @@ export function createSeedState(): AppState {
       t('Reply to design feedback', workId, { columnId: 'col-todo', priority: 2, dueDate: today }),
       t('Deploy v2.1', workId, { columnId: 'col-todo', dueDate: in3 }),
       t('Kickoff slides', workId, { columnId: 'col-done', completed: true, completedAt: new Date().toISOString() }),
+      medsTask(personalId, order++),
       t('Call the dentist', personalId, { dueDate: yesterday, priority: 2, tags: ['errand'] }),
       t('Morning run', personalId, {
         dueDate: today, tags: ['focus'],
@@ -127,6 +131,46 @@ export function createSeedState(): AppState {
       },
     ],
     pomodoros: [],
+  }
+}
+
+function medsTask(listId: string, order: number): Task {
+  const morning = uid('slot')
+  const evening = uid('slot')
+  const log: { [date: string]: string[] } = {}
+  for (let i = 1; i <= 24; i++) {
+    const key = format(addDays(new Date(), -i), 'yyyy-MM-dd')
+    const day: string[] = []
+    if (Math.random() < 0.85) day.push(morning) // morning usually taken
+    if (Math.random() < 0.65) day.push(evening) // evening more often missed
+    if (day.length) log[key] = day
+  }
+  return {
+    id: uid('task'),
+    title: 'Take medication',
+    notes: 'Track morning and evening doses. Open this task to see the monthly calendar of which days/times you took it.',
+    listId,
+    completed: false,
+    completedAt: null,
+    priority: 2,
+    dueDate: null,
+    startDate: null,
+    hasTime: false,
+    tags: [],
+    subtasks: [],
+    recurrence: { ...NO_RECURRENCE },
+    reminders: [],
+    countdown: false,
+    trackingEnabled: true,
+    slots: [
+      { id: morning, label: 'Morning', time: '08:00' },
+      { id: evening, label: 'Evening', time: '20:00' },
+    ],
+    completionLog: log,
+    pinned: false,
+    order,
+    createdAt: new Date().toISOString(),
+    columnId: null,
   }
 }
 

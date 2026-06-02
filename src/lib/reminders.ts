@@ -37,6 +37,22 @@ export function collectReminders(tasks: Task[], habits: Habit[], now: Date): Rem
         emoji: '✅',
       })
     }
+    // tracked-task slot reminders (e.g. meds morning/evening)
+    if (t.trackingEnabled) {
+      const doneToday = new Set(t.completionLog[todayKey] ?? [])
+      for (const slot of t.slots) {
+        if (!slot.time || doneToday.has(slot.id)) continue
+        const time = Date.parse(`${todayKey}T${slot.time}`)
+        if (Number.isNaN(time)) continue
+        out.push({
+          key: `slot:${t.id}:${todayKey}:${slot.id}`,
+          time,
+          title: t.title || 'Task',
+          body: `${slot.label} dose`,
+          emoji: '💊',
+        })
+      }
+    }
   }
 
   for (const h of habits) {

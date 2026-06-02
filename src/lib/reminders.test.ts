@@ -57,6 +57,27 @@ describe('collectReminders', () => {
   })
 })
 
+describe('tracked-task slot reminders', () => {
+  const tracked = (over: Partial<Task> = {}) =>
+    task({
+      trackingEnabled: true,
+      slots: [{ id: 'm', label: 'Morning', time: '08:00' }, { id: 'e', label: 'Evening', time: '20:00' }],
+      completionLog: {},
+      ...over,
+    })
+
+  it('emits a reminder per uncompleted timed slot for today', () => {
+    const out = collectReminders([tracked()], [], new Date('2026-06-02T06:00:00'))
+    expect(out.map((r) => r.key)).toEqual(['slot:t1:2026-06-02:m', 'slot:t1:2026-06-02:e'])
+    expect(out[0].body).toBe('Morning dose')
+  })
+
+  it('skips a slot already completed today', () => {
+    const out = collectReminders([tracked({ completionLog: { '2026-06-02': ['m'] } })], [], new Date('2026-06-02T06:00:00'))
+    expect(out.map((r) => r.key)).toEqual(['slot:t1:2026-06-02:e'])
+  })
+})
+
 describe('dueReminders', () => {
   const all = collectReminders([task({ reminders: ['2026-06-02T09:00', '2026-06-02T17:00'] })], [], new Date('2026-06-02T08:00:00'))
 

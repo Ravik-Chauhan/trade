@@ -15,10 +15,13 @@ import {
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useUI } from '../store/useUI'
-import { Hourglass, X as XIcon } from 'lucide-react'
+import { Hourglass, X as XIcon, CalendarCheck, Flame } from 'lucide-react'
 import { cx, PRIORITY_META } from '../lib/utils'
-import type { Priority, RepeatRule, Recurrence } from '../types'
+import type { Priority, RepeatRule, Recurrence, Task } from '../types'
 import { NO_RECURRENCE } from '../types'
+import TaskTrackingCalendar from './TaskTrackingCalendar'
+import { SLOT_PRESETS, makeSlot, trackingStreak } from '../lib/tracking'
+import { todayISO, format, addDays, parseISO } from '../lib/date'
 
 const REPEAT_OPTIONS: { value: RepeatRule; label: string }[] = [
   { value: 'none', label: 'No repeat' },
@@ -130,6 +133,9 @@ export default function TaskDetail() {
           />
         </div>
 
+        <TrackingSection task={task} />
+
+        {!task.trackingEnabled && (<>
         <div className="detail-section">
           <div className="detail-label">Schedule</div>
           <div className="field-grid">
@@ -213,6 +219,7 @@ export default function TaskDetail() {
             <Plus size={16} /> Add reminder
           </button>
         </div>
+        </>)}
 
         <div className="detail-section">
           <div className="detail-label"><Flag size={12} style={{ verticalAlign: -1 }} /> Priority</div>
@@ -391,6 +398,88 @@ function RecurrenceEditor({
             value={value.endDate ?? ''}
             onChange={(e) => onChange({ ...value, endDate: e.target.value || null })}
           />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TrackingSection({ task }: { task: Task }) {
+  const setTracking = useStore((s) => s.setTracking)
+  const setSlots = useStore((s) => s.setSlots)
+  const today = todayISO()
+  const dayBefore = (key: string, n: number) => format(addDays(parseISO(key), -n), 'yyyy-MM-dd')
+  const streak = task.trackingEnabled ? trackingStreak(task, today, dayBefore) : 0
+
+  return (
+    <div className="detail-section">
+      <div className="switch">
+        <div>
+          <div className="detail-label" style={{ marginBottom: 2 }}>
+            <CalendarCheck size={12} style={{ verticalAlign: -1 }} /> Daily tracking
+          </div>
+          <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+            Track this every day, once or multiple times (e.g. morning &amp; evening)
+          </div>
+        </div>
+        <button
+          className={cx('toggle', task.trackingEnabled && 'on')}
+          onClick={() => setTracking(task.id, !task.trackingEnabled)}
+        />
+      </div>
+
+      {task.trackingEnabled && (
+        <div style={{ marginTop: 14 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+            {SLOT_PRESETS.map((p) => (
+              <button
+                key={p.label}
+                className="pill"
+                onClick={() => setSlots(task.id, p.slots.map((s) => makeSlot(s.label, s.time)))}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {task.slots.map((slot, i) => (
+            <div key={slot.id} className="field" style={{ marginBottom: 8 }}>
+              <input
+                style={{ border: 'none', background: 'none', outline: 'none', flex: 1, color: 'var(--text)' }}
+                value={slot.label}
+                placeholder={`Slot ${i + 1}`}
+                onChange={(e) =>
+                  setSlots(task.id, task.slots.map((s) => (s.id === slot.id ? { ...s, label: e.target.value } : s)))
+                }
+              />
+              <input
+                type="time"
+                style={{ border: 'none', background: 'none', outline: 'none', color: 'var(--text-soft)', width: 90 }}
+                value={slot.time ?? ''}
+                onChange={(e) =>
+                  setSlots(task.id, task.slots.map((s) => (s.id === slot.id ? { ...s, time: e.target.value || null } : s)))
+                }
+              />
+              <button
+                className="icon-btn"
+                style={{ width: 26, height: 26 }}
+                onClick={() => setSlots(task.id, task.slots.filter((s) => s.id !== slot.id))}
+                aria-label="Remove slot"
+              >
+                <XIcon size={14} />
+              </button>
+            </div>
+          ))}
+          <button className="add-sub" style={{ width: '100%', marginBottom: 14 }} onClick={() => setSlots(task.id, [...task.slots, makeSlot('')])}>
+            <Plus size={16} /> Add time slot
+          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, color: 'var(--text-soft)' }}>
+            <Flame size={14} style={{ color: streak > 0 ? 'var(--amber)' : undefined }} />
+            <strong>{streak}</strong> day perfect streak
+          </div>
+
+          <TaskTrackingCalendar task={task} />
         </div>
       )}
     </div>

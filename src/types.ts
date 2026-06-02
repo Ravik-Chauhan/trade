@@ -31,6 +31,13 @@ export interface Subtask {
   done: boolean
 }
 
+/** A named daily occurrence for a tracked task, e.g. "Morning" at 08:00. */
+export interface TrackingSlot {
+  id: string
+  label: string
+  time: string | null // 'HH:mm' or null
+}
+
 export interface Task {
   id: string
   title: string
@@ -47,6 +54,10 @@ export interface Task {
   recurrence: Recurrence
   reminders: string[] // multiple reminders (ISO datetimes)
   countdown: boolean // show days-remaining countdown
+  // daily multi-slot tracking (e.g. take meds morning & evening)
+  trackingEnabled: boolean
+  slots: TrackingSlot[]
+  completionLog: { [date: string]: string[] } // yyyy-mm-dd -> completed slot ids
   pinned: boolean
   order: number
   createdAt: string

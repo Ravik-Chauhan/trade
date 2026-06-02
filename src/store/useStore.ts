@@ -16,6 +16,7 @@ import { NO_RECURRENCE } from '../types'
 import { uid } from '../lib/utils'
 import { createSeedState } from '../lib/seed'
 import { advanceRecurrence, dayKey } from '../lib/date'
+import { toggleSlotLog, makeSlot } from '../lib/tracking'
 
 interface Store extends AppState {
   // task actions
@@ -31,6 +32,10 @@ interface Store extends AppState {
   toggleSubtask: (taskId: string, subId: string) => void
   updateSubtask: (taskId: string, subId: string, title: string) => void
   deleteSubtask: (taskId: string, subId: string) => void
+  // daily slot tracking
+  setTracking: (taskId: string, enabled: boolean) => void
+  setSlots: (taskId: string, slots: Task['slots']) => void
+  toggleSlot: (taskId: string, dateKey: string, slotId: string) => void
   // lists & folders
   addList: (name: string, opts?: Partial<TaskList>) => string
   updateList: (id: string, patch: Partial<TaskList>) => void
@@ -87,6 +92,9 @@ export const useStore = create<Store>()(
           recurrence: partial.recurrence ?? { ...NO_RECURRENCE },
           reminders: partial.reminders ?? [],
           countdown: partial.countdown ?? false,
+          trackingEnabled: partial.trackingEnabled ?? false,
+          slots: partial.slots ?? [],
+          completionLog: partial.completionLog ?? {},
           pinned: partial.pinned ?? false,
           order: maxOrder + 1,
           createdAt: new Date().toISOString(),
@@ -220,6 +228,29 @@ export const useStore = create<Store>()(
         set((s) => ({
           tasks: s.tasks.map((t) =>
             t.id === taskId ? { ...t, subtasks: t.subtasks.filter((st) => st.id !== subId) } : t
+          ),
+        })),
+
+      setTracking: (taskId, enabled) =>
+        set((s) => ({
+          tasks: s.tasks.map((t) =>
+            t.id === taskId
+              ? {
+                  ...t,
+                  trackingEnabled: enabled,
+                  slots: enabled && t.slots.length === 0 ? [makeSlot('Done')] : t.slots,
+                }
+              : t
+          ),
+        })),
+
+      setSlots: (taskId, slots) =>
+        set((s) => ({ tasks: s.tasks.map((t) => (t.id === taskId ? { ...t, slots } : t)) })),
+
+      toggleSlot: (taskId, dateKey, slotId) =>
+        set((s) => ({
+          tasks: s.tasks.map((t) =>
+            t.id === taskId ? { ...t, completionLog: toggleSlotLog(t.completionLog, dateKey, slotId) } : t
           ),
         })),
 
@@ -381,11 +412,20 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'tickflow-store-v1',
-      version: 2,
+      version: 3,
       // migrate older persisted shapes (single reminder / string repeat) forward
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>
         if (!state) return state as never
+        if (version < 3) {
+          const tasks = (state.tasks as Record<string, unknown>[] | undefined) ?? []
+          state.tasks = tasks.map((t) => ({
+            trackingEnabled: false,
+            slots: [],
+            completionLog: {},
+            ...t,
+          }))
+        }
         if (version < 2) {
           const tasks = (state.tasks as Record<string, unknown>[] | undefined) ?? []
           state.tasks = tasks.map((t) => {

@@ -1,10 +1,11 @@
 import { useState, type DragEvent } from 'react'
-import { Check, Calendar, Repeat, Star, Flag, ListChecks, Bell, Hourglass } from 'lucide-react'
+import { Check, Calendar, Repeat, Star, Flag, ListChecks, Bell, Hourglass, CalendarCheck } from 'lucide-react'
 import type { Task } from '../types'
 import { useStore } from '../store/useStore'
 import { useUI } from '../store/useUI'
 import { cx } from '../lib/utils'
-import { formatDue, isOverdue, isDueToday, relativeDays } from '../lib/date'
+import { formatDue, isOverdue, isDueToday, relativeDays, todayISO } from '../lib/date'
+import { dayProgress } from '../lib/tracking'
 
 interface Props {
   task: Task
@@ -21,6 +22,7 @@ function countdownLabel(due: string): string {
 
 export default function TaskItem({ task, onContext }: Props) {
   const toggleTask = useStore((s) => s.toggleTask)
+  const toggleSlot = useStore((s) => s.toggleSlot)
   const updateTask = useStore((s) => s.updateTask)
   const reorderTask = useStore((s) => s.reorderTask)
   const lists = useStore((s) => s.lists)
@@ -31,6 +33,9 @@ export default function TaskItem({ task, onContext }: Props) {
   const pClass = task.priority ? `p${task.priority}` : ''
   const doneSubs = task.subtasks.filter((s) => s.done).length
   const list = lists.find((l) => l.id === task.listId)
+  const today = todayISO()
+  const prog = task.trackingEnabled ? dayProgress(task, today) : null
+  const trackingComplete = prog ? prog.total > 0 && prog.done === prog.total : false
 
   const onDragStart = (e: DragEvent) => {
     e.dataTransfer.setData('text/task-id', task.id)
@@ -57,19 +62,49 @@ export default function TaskItem({ task, onContext }: Props) {
       onDragLeave={() => setDropping(false)}
       onDrop={onDrop}
     >
-      <button
-        className={cx('checkbox', pClass, task.completed && 'checked')}
-        onClick={(e) => {
-          e.stopPropagation()
-          toggleTask(task.id)
-        }}
-        aria-label="Toggle complete"
-      >
-        {task.completed && <Check size={13} strokeWidth={3} />}
-      </button>
+      {task.trackingEnabled ? (
+        <span className={cx('track-badge', trackingComplete && 'complete')} title="Today's progress" aria-label="Daily tracking">
+          {trackingComplete ? <Check size={11} strokeWidth={3} /> : `${prog!.done}/${prog!.total}`}
+        </span>
+      ) : (
+        <button
+          className={cx('checkbox', pClass, task.completed && 'checked')}
+          onClick={(e) => {
+            e.stopPropagation()
+            toggleTask(task.id)
+          }}
+          aria-label="Toggle complete"
+        >
+          {task.completed && <Check size={13} strokeWidth={3} />}
+        </button>
+      )}
 
       <div className="task-body">
-        <div className="task-title">{task.title}</div>
+        <div className="task-title">
+          {task.trackingEnabled && <CalendarCheck size={13} style={{ verticalAlign: -2, marginRight: 5, color: 'var(--accent)' }} />}
+          {task.title}
+        </div>
+
+        {task.trackingEnabled && (
+          <div className="slot-chips">
+            {task.slots.map((slot) => {
+              const done = (task.completionLog[today] ?? []).includes(slot.id)
+              return (
+                <button
+                  key={slot.id}
+                  className={cx('slot-chip', done && 'done')}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    toggleSlot(task.id, today, slot.id)
+                  }}
+                >
+                  {done && <Check size={10} strokeWidth={3} />}
+                  {slot.label}{slot.time ? ` ${slot.time}` : ''}
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         {(task.dueDate || task.tags.length > 0 || task.recurrence.rule !== 'none' || task.subtasks.length > 0 || task.priority > 0 || task.reminders.length > 0) && (
           <div className="task-meta">

@@ -46,7 +46,7 @@ export function matchesSelection(task: Task, sel: Selection, filters: SmartFilte
     case 'smart':
       switch (sel.id) {
         case 'today':
-          return isDueToday(task.dueDate) || (isOverdue(task.dueDate) && !task.completed)
+          return task.trackingEnabled || isDueToday(task.dueDate) || (isOverdue(task.dueDate) && !task.completed)
         case 'tomorrow':
           return isDueTomorrow(task.dueDate)
         case 'next7':

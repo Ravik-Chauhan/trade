@@ -1047,6 +1047,93 @@ select {
   font-size: 12px;
 }
 
+/* ---------------- Task tracking calendar ---------------- */
+.track-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.track-weekday {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding-bottom: 2px;
+}
+.track-day {
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 2px;
+  background: var(--bg);
+  min-height: 0;
+}
+.track-day.muted { opacity: 0.4; }
+.track-day.today { border-color: var(--accent); }
+.track-daynum { font-size: 11px; color: var(--text-soft); line-height: 1; }
+.track-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  justify-content: center;
+  padding-bottom: 1px;
+}
+.track-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  display: grid;
+  place-items: center;
+  color: #fff;
+  padding: 0;
+  background: transparent;
+}
+.track-dot.missed { border-color: var(--red); border-style: dashed; }
+.track-dot.done { color: #fff; }
+.track-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+.track-legend-item { display: inline-flex; align-items: center; gap: 5px; }
+
+/* today's slot chips on a task row */
+.slot-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+.slot-chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 20px;
+  border: 1px solid var(--border-strong);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-soft);
+}
+.slot-chip.done { background: var(--accent); border-color: var(--accent); color: #fff; }
+.track-badge {
+  width: 19px;
+  height: 19px;
+  border-radius: 6px;
+  border: 2px solid var(--border-strong);
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--text-muted);
+}
+.track-badge.complete { background: var(--green); border-color: var(--green); color: #fff; }
+
 /* ---------------- Eisenhower Matrix ---------------- */
 .matrix-grid {
   flex: 1;
