@@ -110,6 +110,7 @@ select {
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
 }
 
@@ -140,6 +141,7 @@ select {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -194,7 +196,9 @@ select {
 
 .sidebar-scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 4px 8px 16px;
 }
 
@@ -541,6 +545,7 @@ select {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  overflow: hidden;
 }
 .detail-header {
   display: flex;
@@ -554,8 +559,11 @@ select {
 }
 .detail-scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 18px 20px 40px;
+  overscroll-behavior: contain;
 }
 .detail-title-row {
   display: flex;
@@ -1300,7 +1308,9 @@ select {
   width: 100%;
   max-width: 440px;
   max-height: 90vh;
+  max-height: 90dvh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .modal-head {
   display: flex;
@@ -1499,6 +1509,7 @@ select {
     right: 0;
     top: 0;
     height: 100vh;
+    height: 100dvh;
     z-index: 60;
     box-shadow: var(--shadow-lg);
   }
