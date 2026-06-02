@@ -45,11 +45,18 @@ Plus **custom Smart Lists** — saved filters combining list, tag, priority, due
 
 ## 🚀 Getting Started
 
+**Option A — Zero install:** open `TickFlow.html` directly in any modern browser
+(double-click it). It's the whole app inlined into one file — no Node, no server.
+Data is saved in that browser's local storage. Regenerate it with `npm run build:single`.
+
+**Option B — Dev server (live code, hot reload):** requires Node.js 18+.
+
 ```bash
 npm install
 npm run dev            # start dev server (http://localhost:5173)
 npm run build          # type-check + production build
 npm run preview        # preview the production build
+npm run build:single   # inline everything into a portable TickFlow.html
 npm test               # run the unit/component test suite (Vitest)
 npm run test:coverage  # run tests with a coverage report
 ```
