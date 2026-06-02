@@ -1,7 +1,15 @@
-import { useRef } from 'react'
-import { Download, Upload, RotateCcw, Sun, Moon, Monitor } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Download, Upload, RotateCcw, Sun, Moon, Monitor, Bell, BellRing } from 'lucide-react'
 import { useStore } from '../store/useStore'
+import { useToasts } from '../store/useToasts'
 import { cx, LIST_COLORS } from '../lib/utils'
+import {
+  notificationsSupported,
+  notificationPermission,
+  requestNotificationPermission,
+  showNotification,
+  chime,
+} from '../lib/notifications'
 import type { AppState } from '../types'
 
 export default function SettingsView() {
@@ -9,7 +17,24 @@ export default function SettingsView() {
   const updateSettings = useStore((s) => s.updateSettings)
   const resetData = useStore((s) => s.resetData)
   const importData = useStore((s) => s.importData)
+  const pushToast = useToasts((s) => s.push)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [perm, setPerm] = useState<NotificationPermission>(notificationPermission())
+
+  const enableNotifications = async () => {
+    const p = await requestNotificationPermission()
+    setPerm(p)
+    if (p === 'granted') showNotification('🔔 Notifications enabled', 'TickFlow will alert you when reminders are due.')
+  }
+
+  const sendTest = () => {
+    chime()
+    const shown = showNotification('✅ Test reminder', 'This is what a reminder looks like.')
+    pushToast({ title: 'Test reminder', body: 'This is what a reminder looks like.', emoji: '✅' })
+    if (!shown && perm !== 'granted') {
+      // permission not granted — the in-app toast above still appears
+    }
+  }
 
   const exportData = () => {
     const state = useStore.getState()
@@ -73,6 +98,35 @@ export default function SettingsView() {
             ))}
           </div>
         </Row>
+      </Group>
+
+      <Group title="Notifications & Reminders">
+        <div className="switch">
+          <div>
+            <div style={{ fontWeight: 600 }}>Browser notifications</div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+              {!notificationsSupported()
+                ? 'Not supported in this browser'
+                : perm === 'granted'
+                  ? '✅ Enabled — reminders will pop up while TickFlow is open'
+                  : perm === 'denied'
+                    ? '🚫 Blocked — enable notifications for this site in your browser settings'
+                    : 'Allow notifications to get reminder pop-ups'}
+            </div>
+          </div>
+          {perm !== 'granted' && (
+            <button className="btn primary" onClick={enableNotifications} disabled={!notificationsSupported() || perm === 'denied'}>
+              <Bell size={15} /> Enable
+            </button>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="btn" onClick={sendTest}><BellRing size={15} /> Send test reminder</button>
+        </div>
+        <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+          Reminders fire while TickFlow is open in a browser tab (it can be in the background). For
+          alerts when the app is fully closed or synced to your phone, a hosted/PWA + account setup is needed.
+        </div>
       </Group>
 
       <Group title="Tasks">
