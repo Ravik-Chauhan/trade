@@ -8,6 +8,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:single": "tsc -b && SINGLEFILE=1 vite build",
+    "serve": "vite build && node server/index.mjs",
+    "server": "node server/index.mjs",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
     "test": "vitest run",

@@ -12,3 +12,6 @@ vite.config.d.ts
 
 # generated single-file build
 TickFlow.html
+
+# local sync server data
+server/data.json

@@ -15,6 +15,7 @@ import SettingsView from './components/SettingsView'
 import MatrixView from './components/MatrixView'
 import Toasts from './components/Toasts'
 import { useReminderEngine } from './hooks/useReminderEngine'
+import { useSync } from './hooks/useSync'
 
 function useTheme() {
   const theme = useStore((s) => s.settings.theme)
@@ -42,6 +43,7 @@ function useTheme() {
 export default function App() {
   useTheme()
   useReminderEngine()
+  useSync()
   const selection = useUI((s) => s.selection)
   const view = useUI((s) => s.view)
   const selectedTaskId = useUI((s) => s.selectedTaskId)

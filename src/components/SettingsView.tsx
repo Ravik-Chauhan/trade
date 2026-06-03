@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react'
-import { Download, Upload, RotateCcw, Sun, Moon, Monitor, Bell, BellRing } from 'lucide-react'
+import { Download, Upload, RotateCcw, Sun, Moon, Monitor, Bell, BellRing, Cloud, CloudOff, RefreshCw, UploadCloud, DownloadCloud } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useToasts } from '../store/useToasts'
+import { useSyncStatus } from '../store/useSyncStatus'
+import { snapshot, pushServer, fetchServer, setLocalVersion } from '../lib/sync'
 import { cx, LIST_COLORS } from '../lib/utils'
 import {
   notificationsSupported,
@@ -25,6 +27,37 @@ export default function SettingsView() {
     const p = await requestNotificationPermission()
     setPerm(p)
     if (p === 'granted') showNotification('🔔 Notifications enabled', 'TickFlow will alert you when reminders are due.')
+  }
+
+  const syncStatus = useSyncStatus((s) => s.status)
+  const lastSync = useSyncStatus((s) => s.lastSync)
+  const setSyncStatus = useSyncStatus((s) => s.setStatus)
+
+  const forceUpload = async () => {
+    setSyncStatus('syncing')
+    const v = await pushServer(snapshot())
+    if (v != null) {
+      setLocalVersion(v)
+      setSyncStatus('synced')
+      pushToast({ title: 'Uploaded', body: 'This device is now the source on the server.', emoji: '☁️' })
+    } else {
+      setSyncStatus('offline')
+      pushToast({ title: 'No sync server', body: 'Start the app via the sync server to enable.', emoji: '⚠️' })
+    }
+  }
+
+  const forceDownload = async () => {
+    setSyncStatus('syncing')
+    const res = await fetchServer()
+    if (res?.state) {
+      importData(res.state)
+      setLocalVersion(res.version)
+      setSyncStatus('synced')
+      pushToast({ title: 'Downloaded', body: 'Pulled the latest data from the server.', emoji: '☁️' })
+    } else {
+      setSyncStatus('offline')
+      pushToast({ title: 'Nothing to download', body: 'No server or no data on it yet.', emoji: '⚠️' })
+    }
   }
 
   const sendTest = () => {
@@ -139,6 +172,40 @@ export default function SettingsView() {
         <NumRow label="Short break (min)" value={settings.shortBreak} onChange={(v) => updateSettings({ shortBreak: v })} />
         <NumRow label="Long break (min)" value={settings.longBreak} onChange={(v) => updateSettings({ longBreak: v })} />
         <NumRow label="Long break every N sessions" value={settings.longBreakEvery} onChange={(v) => updateSettings({ longBreakEvery: v })} />
+      </Group>
+
+      <Group title="Sync (multi-device)">
+        <div className="switch">
+          <div>
+            <div style={{ fontWeight: 600 }}>
+              {syncStatus === 'synced' && '✅ Synced'}
+              {syncStatus === 'syncing' && '🔄 Syncing…'}
+              {syncStatus === 'offline' && '⚠️ Sync server unreachable'}
+              {syncStatus === 'disabled' && 'Not in sync mode'}
+            </div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+              {syncStatus === 'disabled'
+                ? 'Open the app from the sync server (run-server) to share one dataset across all devices on your network.'
+                : syncStatus === 'offline'
+                  ? "Can't reach /api/state — is the sync server still running?"
+                  : lastSync
+                    ? `Last synced ${new Date(lastSync).toLocaleTimeString()}`
+                    : 'Connected to the sync server.'}
+            </div>
+          </div>
+          <span style={{ color: syncStatus === 'disabled' || syncStatus === 'offline' ? 'var(--text-muted)' : 'var(--green)' }}>
+            {syncStatus === 'syncing' ? <RefreshCw size={20} /> : syncStatus === 'disabled' || syncStatus === 'offline' ? <CloudOff size={20} /> : <Cloud size={20} />}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button className="btn" onClick={forceUpload}><UploadCloud size={15} /> Upload this device → server</button>
+          <button className="btn" onClick={forceDownload}><DownloadCloud size={15} /> Download server → this device</button>
+        </div>
+        <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+          Edits sync automatically (last change wins). The first device to connect seeds the server —
+          use <strong>Upload</strong> to force this device's data to become the shared copy, or
+          <strong> Download</strong> to overwrite this device with the server's copy.
+        </div>
       </Group>
 
       <Group title="Data">
