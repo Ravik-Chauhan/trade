@@ -101,7 +101,7 @@ export default function Header() {
       </button>
       <h1>
         {emoji && <span>{emoji}</span>}
-        {title}
+        <span className="htitle">{title}</span>
       </h1>
       {subtitle && <span className="subtitle">{subtitle}</span>}
       <div className="header-spacer" />
