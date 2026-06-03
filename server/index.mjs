@@ -108,9 +108,23 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   const nets = os.networkInterfaces()
-  const lan = Object.values(nets).flat().find((n) => n && n.family === 'IPv4' && !n.internal)
+  const addrs = []
+  for (const [name, ifaces] of Object.entries(nets)) {
+    for (const n of ifaces ?? []) {
+      if (n && n.family === 'IPv4' && !n.internal) addrs.push({ name, address: n.address })
+    }
+  }
+  // most-likely-LAN first: home Wi-Fi/router ranges (192.168.x, 10.x) before
+  // virtual adapters (WSL/Hyper-V/Docker/VPN, often 172.x).
+  const rank = (a) => (a.address.startsWith('192.168.') ? 0 : a.address.startsWith('10.') ? 1 : 2)
+  addrs.sort((a, b) => rank(a) - rank(b))
+
   console.log('\n  TickFlow sync server running:\n')
   console.log(`    Local:    http://localhost:${PORT}`)
-  if (lan) console.log(`    Network:  http://${lan.address}:${PORT}   <- open this on other devices`)
+  if (addrs.length) {
+    console.log('\n  Open ONE of these on your other devices (try the 192.168.x one first):')
+    for (const a of addrs) console.log(`    http://${a.address}:${PORT}   (${a.name})`)
+    console.log('\n  Not connecting? Allow Node.js through Windows Firewall on Private networks.')
+  }
   console.log('\n  Data file:', DATA, '\n  Press Ctrl+C to stop.\n')
 })
