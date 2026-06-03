@@ -1170,7 +1170,8 @@ select {
   transition: opacity 0.12s;
 }
 .habit-day.rest { opacity: 0.5; }
-.habit-day:hover { border-color: var(--accent); }
+.habit-day.future { cursor: default; opacity: 0.45; }
+.habit-day:not(.future):hover { border-color: var(--accent); }
 .habit-day-val {
   font-size: 11px;
   font-weight: 700;

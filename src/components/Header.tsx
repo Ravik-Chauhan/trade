@@ -176,7 +176,6 @@ export default function Header() {
                 >
                   {showCompleted ? <EyeOff size={15} /> : <Eye size={15} />}
                   {showCompleted ? 'Hide completed' : 'Show completed'}
-                  {showCompleted && <Check size={14} style={{ marginLeft: 'auto', color: 'var(--accent)' }} />}
                 </button>
               )}
               <button

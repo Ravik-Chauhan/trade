@@ -3,6 +3,7 @@ import { Plus, Minus, Trash2, Flame, Check } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { cx, HABIT_EMOJIS, LIST_COLORS } from '../lib/utils'
 import { todayISO, format, addDays } from '../lib/date'
+import { startOfWeek, endOfWeek, addWeeks, eachDayOfInterval } from 'date-fns'
 import Modal from './Modal'
 import HabitMonthCalendar from './HabitMonthCalendar'
 import type { Habit } from '../types'
@@ -15,6 +16,22 @@ function isRequiredDay(habit: Habit, date: Date): boolean {
 }
 
 function streak(habit: Habit): number {
+  // weekly habits: count consecutive weeks (ending this week) that hit the target
+  if (habit.freq.type === 'weekly') {
+    let count = 0
+    for (let w = 0; w < 104; w++) {
+      const ref = addWeeks(new Date(), -w)
+      const sum = eachDayOfInterval({
+        start: startOfWeek(ref, { weekStartsOn: 1 }),
+        end: endOfWeek(ref, { weekStartsOn: 1 }),
+      }).reduce((a, d) => a + (habit.log[format(d, 'yyyy-MM-dd')] ?? 0), 0)
+      if (sum >= habit.freq.timesPerWeek) count++
+      else if (w === 0) continue // current week still in progress
+      else break
+    }
+    return count
+  }
+
   let count = 0
   for (let i = 0; i < 365; i++) {
     const date = addDays(new Date(), -i)
@@ -24,7 +41,7 @@ function streak(habit: Habit): number {
       count++
     } else if (i === 0) {
       continue // today not logged yet shouldn't break the streak
-    } else if (habit.freq.type === 'daily' && !isRequiredDay(habit, date)) {
+    } else if (!isRequiredDay(habit, date)) {
       continue // skip non-required days without breaking
     } else {
       break
@@ -91,7 +108,7 @@ function HabitCard({ habit: h }: { habit: Habit }) {
         <div>
           <div className="habit-name">{h.name}</div>
           <div className="habit-streak">
-            <Flame size={12} style={{ verticalAlign: -1, color: st > 0 ? 'var(--amber)' : undefined }} /> {st} day streak · {freqLabel(h)} · {h.goal} {h.unit}
+            <Flame size={12} style={{ verticalAlign: -1, color: st > 0 ? 'var(--amber)' : undefined }} /> {st} {h.freq.type === 'weekly' ? 'week' : 'day'} streak · {freqLabel(h)} · {h.goal} {h.unit}
             {h.reminderTime && <> · ⏰ {h.reminderTime}</>}
           </div>
         </div>

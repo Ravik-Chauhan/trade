@@ -65,9 +65,10 @@ export default function HabitMonthCalendar({ habit }: { habit: Habit }) {
           return (
             <button
               key={key}
-              className={cx('track-day habit-day', outside && 'muted', isToday(day) && 'today', missed && 'missed', !required && 'rest')}
-              title={tip}
-              onClick={() => incrementHabit(habit.id, key, done ? -val : 1)}
+              className={cx('track-day habit-day', outside && 'muted', isToday(day) && 'today', missed && 'missed', !required && 'rest', !past && 'future')}
+              title={past ? tip : `${key}: can't log a future day`}
+              disabled={!past}
+              onClick={() => past && incrementHabit(habit.id, key, done ? -val : 1)}
               style={ratio > 0 ? { background: habit.color, opacity: outside ? 0.4 : 0.25 + ratio * 0.75, color: '#fff', borderColor: habit.color } : undefined}
             >
               <span className="track-daynum" style={ratio > 0 ? { color: '#fff' } : undefined}>{format(day, 'd')}</span>

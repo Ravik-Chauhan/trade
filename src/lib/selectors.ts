@@ -1,6 +1,7 @@
 import type { Task, SortMode, GroupMode, SmartFilter, TaskList, Priority } from '../types'
 import type { Selection } from '../store/useUI'
-import { isDueToday, isDueTomorrow, isWithinNext7, isOverdue, relativeDays } from './date'
+import { isDueToday, isDueTomorrow, isWithinNext7, isOverdue, relativeDays, todayISO } from './date'
+import { dayProgress } from './tracking'
 import { PRIORITY_META } from './utils'
 
 export interface Bucket {
@@ -45,13 +46,20 @@ export function matchesSelection(task: Task, sel: Selection, filters: SmartFilte
       return f ? matchesFilter(task, f) : false
     }
     case 'smart': {
-      // the Notes view is the only smart list that shows notes; every other
-      // smart list is task-centric (dates, priority, completion).
+      // Notes show in the Notes view and in their own list (Inbox is a list);
+      // every other smart list is task-centric (dates, priority, completion).
       if (sel.id === 'notes') return task.kind === 'note'
       if (task.kind === 'note') return sel.id === 'inbox' && task.listId === 'inbox'
       switch (sel.id) {
-        case 'today':
-          return task.trackingEnabled || isDueToday(task.dueDate) || (isOverdue(task.dueDate) && !task.completed)
+        case 'today': {
+          // a tracked task counts as "due today" only until all of today's
+          // slots are logged, then it drops out of Today (and its count).
+          if (task.trackingEnabled) {
+            const { done, total } = dayProgress(task, todayISO())
+            if (total === 0 || done < total) return true
+          }
+          return isDueToday(task.dueDate) || (isOverdue(task.dueDate) && !task.completed)
+        }
         case 'tomorrow':
           return isDueTomorrow(task.dueDate)
         case 'next7':

@@ -438,7 +438,9 @@ export const useStore = create<Store>()(
             if (!('reminders' in out)) out.reminders = out.reminder ? [out.reminder] : []
             delete out.reminder
             if (typeof out.recurrence === 'undefined') {
-              const rule = (out.repeat as string) ?? 'none'
+              const valid = ['none', 'daily', 'weekdays', 'weekly', 'monthly', 'yearly']
+              const raw = out.repeat as string
+              const rule = valid.includes(raw) ? raw : 'none'
               out.recurrence = { ...NO_RECURRENCE, rule }
             }
             delete out.repeat

@@ -51,6 +51,17 @@ beforeEach(() => {
 })
 afterEach(() => vi.useRealTimers())
 
+describe('Today + daily tracking', () => {
+  it('a tracked task with unfinished slots shows in Today', () => {
+    const t = makeTask({ trackingEnabled: true, slots: [{ id: 'm', label: 'M', time: null }], completionLog: {} })
+    expect(matchesSelection(t, { kind: 'smart', id: 'today' })).toBe(true)
+  })
+  it('drops out of Today once all slots are done', () => {
+    const t = makeTask({ trackingEnabled: true, slots: [{ id: 'm', label: 'M', time: null }], completionLog: { '2026-06-01': ['m'] } })
+    expect(matchesSelection(t, { kind: 'smart', id: 'today' })).toBe(false)
+  })
+})
+
 describe('notes (note-type items)', () => {
   it('appear only in the Notes smart view, their list, and by tag', () => {
     const note = makeTask({ kind: 'note', listId: 'work', tags: ['ideas'] })
