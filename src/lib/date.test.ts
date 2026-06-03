@@ -77,6 +77,15 @@ describe('advanceRecurrence', () => {
     const r = rec({ rule: 'custom', customUnit: 'month', monthDays: [31] })
     expect(advanceRecurrence('2026-01-31', r).date).toBe('2026-03-31') // skips Feb
   })
+  // Timed due dates are stored as local naive strings; advancing must not
+  // convert to UTC (which shifted early-morning times back a day).
+  it('keeps the local day/time for timed tasks (no UTC shift)', () => {
+    // 2026-06-02 is Tuesday; repeat Tue & Fri at 01:05 -> next is Fri the 5th
+    const r = rec({ rule: 'custom', customUnit: 'week', weekdays: [2, 5] })
+    expect(advanceRecurrence('2026-06-02T01:05:00', r).date).toBe('2026-06-05T01:05:00')
+    // simple daily keeps the same wall-clock time too
+    expect(advanceRecurrence('2026-06-01T01:05:00', rec({ rule: 'daily' })).date).toBe('2026-06-02T01:05:00')
+  })
 })
 
 describe('recurrenceLabel', () => {

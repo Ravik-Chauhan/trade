@@ -1147,6 +1147,9 @@ select {
 .track-day.occ { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .track-day.occ .track-daynum { color: var(--accent); font-weight: 700; }
 .occ-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-bottom: 2px; }
+.track-day.occ-done { background: rgba(54, 179, 126, 0.16); border-color: rgba(54, 179, 126, 0.55); }
+.track-day.occ-done .track-daynum { color: #2a8c63; font-weight: 700; }
+.occ-check { color: #36b37e; margin-bottom: 1px; }
 .track-daynum { font-size: 11px; color: var(--text-soft); line-height: 1; }
 .track-dots {
   display: flex;

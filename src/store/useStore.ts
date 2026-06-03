@@ -93,6 +93,7 @@ export const useStore = create<Store>()(
           recurrence: partial.recurrence ?? { ...NO_RECURRENCE },
           reminders: partial.reminders ?? [],
           countdown: partial.countdown ?? false,
+          recurrenceLog: partial.recurrenceLog ?? [],
           trackingEnabled: partial.trackingEnabled ?? false,
           slots: partial.slots ?? [],
           completionLog: partial.completionLog ?? {},
@@ -114,6 +115,12 @@ export const useStore = create<Store>()(
         const task = get().tasks.find((t) => t.id === id)
         if (!task) return
         const completing = !task.completed
+        // log the just-completed occurrence so the monthly view can show it done
+        const logOccurrence = (log: string[]): string[] => {
+          if (!completing || task.recurrence.rule === 'none' || !task.dueDate) return log
+          const key = dayKey(task.dueDate)
+          return log.includes(key) ? log : [...log, key]
+        }
         // recurring: instead of completing, roll the due date forward (until the
         // series ends, at which point we fall through to a normal completion)
         if (completing && task.recurrence.rule !== 'none' && task.dueDate) {
@@ -126,6 +133,7 @@ export const useStore = create<Store>()(
                       ...t,
                       dueDate: date,
                       recurrence,
+                      recurrenceLog: logOccurrence(t.recurrenceLog),
                       subtasks: t.subtasks.map((st) => ({ ...st, done: false })),
                     }
                   : t
@@ -141,6 +149,7 @@ export const useStore = create<Store>()(
                   ...t,
                   completed: completing,
                   completedAt: completing ? new Date().toISOString() : null,
+                  recurrenceLog: logOccurrence(t.recurrenceLog),
                   columnId: completing && t.columnId ? lastColumn(get().lists, t.listId) : t.columnId,
                 }
               : t
@@ -448,6 +457,7 @@ export const useStore = create<Store>()(
             }
             delete out.repeat
             if (typeof out.countdown === 'undefined') out.countdown = false
+            if (!Array.isArray(out.recurrenceLog)) out.recurrenceLog = []
             return out
           })
           const habits = (state.habits as Record<string, unknown>[] | undefined) ?? []

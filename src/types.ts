@@ -63,6 +63,7 @@ export interface Task {
   recurrence: Recurrence
   reminders: string[] // multiple reminders (ISO datetimes)
   countdown: boolean // show days-remaining countdown
+  recurrenceLog: string[] // yyyy-mm-dd of completed recurring occurrences
   // daily multi-slot tracking (e.g. take meds morning & evening)
   trackingEnabled: boolean
   slots: TrackingSlot[]

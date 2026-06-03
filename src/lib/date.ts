@@ -89,7 +89,7 @@ export function stepDate(value: string, rule: RepeatRule, interval = 1): string 
       return value
   }
   const hasTime = value.length > 10
-  return hasTime ? next.toISOString() : format(next, 'yyyy-MM-dd')
+  return hasTime ? format(next, "yyyy-MM-dd'T'HH:mm:ss") : format(next, 'yyyy-MM-dd')
 }
 
 /** @deprecated kept for compatibility — single-step advance. */
@@ -107,7 +107,7 @@ export function nextOccurrence(value: string, rule: RepeatRule): string {
 function stepCustom(value: string, rec: Recurrence): string {
   const d = parseISO(value)
   const hasTime = value.length > 10
-  const fmt = (x: Date) => (hasTime ? x.toISOString() : format(x, 'yyyy-MM-dd'))
+  const fmt = (x: Date) => (hasTime ? format(x, "yyyy-MM-dd'T'HH:mm:ss") : format(x, 'yyyy-MM-dd'))
   const week = rec.customUnit === 'week'
   const days = week ? rec.weekdays ?? [] : rec.monthDays ?? []
   if (days.length === 0) return stepDate(value, week ? 'weekly' : 'monthly', rec.interval)

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check } from 'lucide-react'
 import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval,
   isSameMonth, isToday, addMonths, subMonths, format,
@@ -28,6 +28,8 @@ export default function OccurrencePreview({ task }: { task: Task }) {
     : ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
   const occ = occurrencesInMonth(task, cursor)
+  const done = new Set(task.recurrenceLog)
+  const doneThisMonth = [...done].filter((d) => d.slice(0, 7) === format(cursor, 'yyyy-MM')).length
 
   return (
     <div style={{ marginTop: 14 }}>
@@ -36,6 +38,7 @@ export default function OccurrencePreview({ task }: { task: Task }) {
         <strong>{format(cursor, 'MMMM yyyy')}</strong>
         <span className="subtitle" style={{ marginLeft: 8 }}>
           {occ.size} {occ.size === 1 ? 'occurrence' : 'occurrences'}
+          {doneThisMonth > 0 && ` · ${doneThisMonth} done`}
         </span>
         <div style={{ flex: 1 }} />
         <button className="icon-btn" onClick={() => setCursor(subMonths(cursor, 1))} aria-label="Previous month"><ChevronLeft size={16} /></button>
@@ -48,18 +51,27 @@ export default function OccurrencePreview({ task }: { task: Task }) {
         {days.map((day) => {
           const key = format(day, 'yyyy-MM-dd')
           const outside = !isSameMonth(day, cursor)
+          const isDone = done.has(key)
           const isOcc = occ.has(key)
           return (
-            <div key={key} className={cx('track-day', outside && 'muted', isToday(day) && 'today', isOcc && 'occ')}>
+            <div
+              key={key}
+              className={cx('track-day', outside && 'muted', isToday(day) && 'today', isDone && 'occ-done', isOcc && !isDone && 'occ')}
+            >
               <span className="track-daynum">{format(day, 'd')}</span>
-              {isOcc && <span className="occ-dot" />}
+              {isDone ? <Check size={12} strokeWidth={3} className="occ-check" /> : isOcc ? <span className="occ-dot" /> : null}
             </div>
           )
         })}
       </div>
 
+      <div className="track-legend" style={{ marginTop: 10 }}>
+        <span className="track-legend-item"><span className="occ-dot" /> scheduled</span>
+        <span className="track-legend-item"><Check size={11} strokeWidth={3} className="occ-check" /> completed</span>
+      </div>
+
       {task.recurrence.rule === 'none' && (
-        <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 8 }}>
+        <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 6 }}>
           One-off task — the due date is highlighted. Set a Repeat above to see recurring days.
         </div>
       )}
