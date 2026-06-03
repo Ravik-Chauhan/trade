@@ -22,6 +22,8 @@ export default function SettingsView() {
   const pushToast = useToasts((s) => s.push)
   const fileRef = useRef<HTMLInputElement>(null)
   const [perm, setPerm] = useState<NotificationPermission>(notificationPermission())
+  const insecure = typeof window !== 'undefined' && !window.isSecureContext
+  const host = typeof window !== 'undefined' ? window.location.host : ''
 
   const enableNotifications = async () => {
     const p = await requestNotificationPermission()
@@ -138,17 +140,19 @@ export default function SettingsView() {
           <div>
             <div style={{ fontWeight: 600 }}>Browser notifications</div>
             <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-              {!notificationsSupported()
-                ? 'Not supported in this browser'
-                : perm === 'granted'
-                  ? '✅ Enabled — reminders will pop up while TickFlow is open'
-                  : perm === 'denied'
-                    ? '🚫 Blocked — enable notifications for this site in your browser settings'
-                    : 'Allow notifications to get reminder pop-ups'}
+              {insecure
+                ? `🔒 Blocked on this address — browsers only allow notifications on https or localhost. You're on http://${host}, so the Enable button is disabled here. Open http://localhost:3000 on this PC to enable them.`
+                : !notificationsSupported()
+                  ? 'Not supported in this browser'
+                  : perm === 'granted'
+                    ? '✅ Enabled — reminders will pop up while TickFlow is open'
+                    : perm === 'denied'
+                      ? '🚫 Blocked — enable notifications for this site in your browser settings'
+                      : 'Allow notifications to get reminder pop-ups'}
             </div>
           </div>
           {perm !== 'granted' && (
-            <button className="btn primary" onClick={enableNotifications} disabled={!notificationsSupported() || perm === 'denied'}>
+            <button className="btn primary" onClick={enableNotifications} disabled={insecure || !notificationsSupported() || perm === 'denied'}>
               <Bell size={15} /> Enable
             </button>
           )}
@@ -157,8 +161,9 @@ export default function SettingsView() {
           <button className="btn" onClick={sendTest}><BellRing size={15} /> Send test reminder</button>
         </div>
         <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-          Reminders fire while TickFlow is open in a browser tab (it can be in the background). For
-          alerts when the app is fully closed or synced to your phone, a hosted/PWA + account setup is needed.
+          Notifications need a secure page, so they only work on <strong>localhost</strong> or an
+          <strong> https</strong> address — not the <code>http://192.168.x</code> network URL. They also
+          fire only while a TickFlow tab is open. The in-app toast + chime still work everywhere.
         </div>
       </Group>
 
