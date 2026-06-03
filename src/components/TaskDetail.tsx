@@ -20,6 +20,7 @@ import { cx, PRIORITY_META } from '../lib/utils'
 import type { Priority, RepeatRule, Recurrence, Task } from '../types'
 import { NO_RECURRENCE } from '../types'
 import TaskTrackingCalendar from './TaskTrackingCalendar'
+import OccurrencePreview from './OccurrencePreview'
 import { SLOT_PRESETS, makeSlot, trackingStreak } from '../lib/tracking'
 import { todayISO, format, addDays, parseISO } from '../lib/date'
 
@@ -205,6 +206,8 @@ export default function TaskDetail() {
               onClick={() => updateTask(task.id, { countdown: !task.countdown })}
             />
           </div>
+
+          {task.dueDate && <OccurrencePreview task={task} />}
         </div>
 
         <div className="detail-section">

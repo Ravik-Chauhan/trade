@@ -1144,6 +1144,9 @@ select {
 }
 .track-day.muted { opacity: 0.4; }
 .track-day.today { border-color: var(--accent); }
+.track-day.occ { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.track-day.occ .track-daynum { color: var(--accent); font-weight: 700; }
+.occ-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-bottom: 2px; }
 .track-daynum { font-size: 11px; color: var(--text-soft); line-height: 1; }
 .track-dots {
   display: flex;
