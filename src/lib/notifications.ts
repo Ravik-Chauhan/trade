@@ -17,10 +17,9 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   }
 }
 
-export function showNotification(title: string, body: string): boolean {
-  if (!notificationsSupported() || Notification.permission !== 'granted') return false
+function showViaConstructor(title: string, options: NotificationOptions): boolean {
   try {
-    const n = new Notification(title, { body, icon: '/favicon.svg', badge: '/favicon.svg' })
+    const n = new Notification(title, options)
     n.onclick = () => {
       window.focus()
       n.close()
@@ -29,6 +28,25 @@ export function showNotification(title: string, body: string): boolean {
   } catch {
     return false
   }
+}
+
+export function showNotification(title: string, body: string): boolean {
+  if (!notificationsSupported() || Notification.permission !== 'granted') return false
+  const options: NotificationOptions = { body, icon: '/favicon.svg', badge: '/favicon.svg' }
+  // Android Chrome forbids `new Notification()` and only allows notifications
+  // raised from a service worker (registration.showNotification). Prefer the SW
+  // when one is registered; fall back to the page-level constructor on desktop.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker
+      .getRegistration()
+      .then((reg) => {
+        if (reg) reg.showNotification(title, options).catch(() => showViaConstructor(title, options))
+        else showViaConstructor(title, options)
+      })
+      .catch(() => showViaConstructor(title, options))
+    return true
+  }
+  return showViaConstructor(title, options)
 }
 
 let audioCtx: AudioContext | null = null
