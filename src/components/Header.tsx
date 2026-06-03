@@ -8,6 +8,9 @@ import {
   Group as GroupIcon,
   MoreHorizontal,
   Check,
+  Eye,
+  EyeOff,
+  Settings as SettingsIcon,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useUI } from '../store/useUI'
@@ -42,12 +45,15 @@ const GROUPS: { value: GroupMode; label: string }[] = [
 ]
 
 export default function Header() {
-  const { selection, view, setView, sort, setSort, group, setGroup, toggleSidebar } = useUI()
+  const { selection, view, setView, sort, setSort, group, setGroup, toggleSidebar, setSelection } = useUI()
   const lists = useStore((s) => s.lists)
   const filters = useStore((s) => s.filters)
   const tasks = useStore((s) => s.tasks)
+  const showCompleted = useStore((s) => s.settings.showCompleted)
+  const updateSettings = useStore((s) => s.updateSettings)
   const [sortOpen, setSortOpen] = useState(false)
   const [groupOpen, setGroupOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
 
   let title = ''
   let emoji = ''
@@ -155,11 +161,34 @@ export default function Header() {
         </>
       )}
 
-      {!isTaskView && (
-        <button className="icon-btn" title="More">
+      <div style={{ position: 'relative' }}>
+        <button className="icon-btn" title="More" onClick={() => setMoreOpen((o) => !o)}>
           <MoreHorizontal size={18} />
         </button>
-      )}
+        {moreOpen && (
+          <>
+            <div className="modal-backdrop" style={{ background: 'transparent' }} onClick={() => setMoreOpen(false)} />
+            <div className="ctx-menu" style={{ right: 0, top: 40, position: 'absolute' }}>
+              {isTaskView && (
+                <button
+                  className="ctx-item"
+                  onClick={() => { updateSettings({ showCompleted: !showCompleted }); setMoreOpen(false) }}
+                >
+                  {showCompleted ? <EyeOff size={15} /> : <Eye size={15} />}
+                  {showCompleted ? 'Hide completed' : 'Show completed'}
+                  {showCompleted && <Check size={14} style={{ marginLeft: 'auto', color: 'var(--accent)' }} />}
+                </button>
+              )}
+              <button
+                className="ctx-item"
+                onClick={() => { setSelection({ kind: 'settings' }); setMoreOpen(false) }}
+              >
+                <SettingsIcon size={15} /> Settings
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   )
 }

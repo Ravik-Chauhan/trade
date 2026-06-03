@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore'
 import { cx, HABIT_EMOJIS, LIST_COLORS } from '../lib/utils'
 import { todayISO, format, addDays } from '../lib/date'
 import Modal from './Modal'
+import HabitMonthCalendar from './HabitMonthCalendar'
 import type { Habit } from '../types'
 
 /** A habit is "required" on a given weekday based on its frequency. */
@@ -46,9 +47,7 @@ function freqLabel(habit: Habit): string {
 
 export default function HabitView() {
   const habits = useStore((s) => s.habits)
-  const { incrementHabit, deleteHabit } = useStore()
   const [adding, setAdding] = useState(false)
-  const today = todayISO()
   const active = habits.filter((h) => !h.archived)
 
   return (
@@ -70,44 +69,54 @@ export default function HabitView() {
         </div>
       )}
 
-      {active.map((h) => {
-        const todayVal = h.log[today] ?? 0
-        const done = todayVal >= h.goal
-        const st = streak(h)
-        return (
-          <div className="habit-card" key={h.id}>
-            <div className="habit-head">
-              <div className="habit-emoji" style={{ background: h.color + '22', color: h.color }}>
-                {h.emoji}
-              </div>
-              <div>
-                <div className="habit-name">{h.name}</div>
-                <div className="habit-streak">
-                  <Flame size={12} style={{ verticalAlign: -1, color: st > 0 ? 'var(--amber)' : undefined }} /> {st} day streak · {freqLabel(h)} · {h.goal} {h.unit}
-                  {h.reminderTime && <> · ⏰ {h.reminderTime}</>}
-                </div>
-              </div>
-              <div className="habit-controls">
-                <button className="step-btn" onClick={() => incrementHabit(h.id, today, -1)}>
-                  <Minus size={16} />
-                </button>
-                <span className="habit-today-val" style={{ color: done ? h.color : undefined }}>
-                  {done && <Check size={14} style={{ verticalAlign: -2 }} />} {todayVal}/{h.goal}
-                </span>
-                <button className="step-btn" onClick={() => incrementHabit(h.id, today, 1)}>
-                  <Plus size={16} />
-                </button>
-                <button className="icon-btn" onClick={() => deleteHabit(h.id)} title="Delete habit">
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            </div>
-            <Heatmap habit={h} />
-          </div>
-        )
-      })}
+      {active.map((h) => <HabitCard key={h.id} habit={h} />)}
 
       {adding && <HabitModal onClose={() => setAdding(false)} />}
+    </div>
+  )
+}
+
+function HabitCard({ habit: h }: { habit: Habit }) {
+  const { incrementHabit, deleteHabit } = useStore()
+  const [tab, setTab] = useState<'recent' | 'month'>('recent')
+  const today = todayISO()
+  const todayVal = h.log[today] ?? 0
+  const done = todayVal >= h.goal
+  const st = streak(h)
+
+  return (
+    <div className="habit-card">
+      <div className="habit-head">
+        <div className="habit-emoji" style={{ background: h.color + '22', color: h.color }}>{h.emoji}</div>
+        <div>
+          <div className="habit-name">{h.name}</div>
+          <div className="habit-streak">
+            <Flame size={12} style={{ verticalAlign: -1, color: st > 0 ? 'var(--amber)' : undefined }} /> {st} day streak · {freqLabel(h)} · {h.goal} {h.unit}
+            {h.reminderTime && <> · ⏰ {h.reminderTime}</>}
+          </div>
+        </div>
+        <div className="habit-controls">
+          <button className="step-btn" onClick={() => incrementHabit(h.id, today, -1)}>
+            <Minus size={16} />
+          </button>
+          <span className="habit-today-val" style={{ color: done ? h.color : undefined }}>
+            {done && <Check size={14} style={{ verticalAlign: -2 }} />} {todayVal}/{h.goal}
+          </span>
+          <button className="step-btn" onClick={() => incrementHabit(h.id, today, 1)}>
+            <Plus size={16} />
+          </button>
+          <button className="icon-btn" onClick={() => deleteHabit(h.id)} title="Delete habit">
+            <Trash2 size={15} />
+          </button>
+        </div>
+      </div>
+
+      <div className="addbar-toggle" style={{ marginBottom: 10 }} role="group" aria-label="History view">
+        <button className={cx(tab === 'recent' && 'active')} onClick={() => setTab('recent')}>Recent</button>
+        <button className={cx(tab === 'month' && 'active')} onClick={() => setTab('month')}>Month</button>
+      </div>
+
+      {tab === 'recent' ? <Heatmap habit={h} /> : <HabitMonthCalendar habit={h} />}
     </div>
   )
 }
