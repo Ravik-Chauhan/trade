@@ -141,7 +141,7 @@ export default function SettingsView() {
             <div style={{ fontWeight: 600 }}>Browser notifications</div>
             <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
               {insecure
-                ? `🔒 Blocked on this address — browsers only allow notifications on https or localhost. You're on http://${host}, so the Enable button is disabled here. Open http://localhost:3000 on this PC to enable them.`
+                ? `🔒 This address (http://${host}) is insecure, so the browser blocks notifications. Open the app over its https:// address (the sync server now uses HTTPS) and accept the one-time certificate warning.`
                 : !notificationsSupported()
                   ? 'Not supported in this browser'
                   : perm === 'granted'
@@ -161,9 +161,9 @@ export default function SettingsView() {
           <button className="btn" onClick={sendTest}><BellRing size={15} /> Send test reminder</button>
         </div>
         <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-          Notifications need a secure page, so they only work on <strong>localhost</strong> or an
-          <strong> https</strong> address — not the <code>http://192.168.x</code> network URL. They also
-          fire only while a TickFlow tab is open. The in-app toast + chime still work everywhere.
+          The sync server runs over <strong>https</strong>, so OS notifications work on this PC and on
+          your phone — just accept the one-time self-signed certificate warning per device, then click
+          Enable. They fire only while a TickFlow tab is open; the in-app toast + chime always work.
         </div>
       </Group>
 

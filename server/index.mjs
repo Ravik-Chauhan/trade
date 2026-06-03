@@ -1,31 +1,80 @@
-// Zero-dependency sync + static server for TickFlow.
-// Serves the built app from ../dist and a tiny last-write-wins state API.
+// HTTPS sync + static server for TickFlow.
+// Serves the built app from ../dist and a last-write-wins state API over TLS
+// (a self-signed cert is generated on first run) so OS notifications — which
+// browsers only allow on secure pages — work on every device, not just localhost.
 //   GET  /api/state -> { version, state }
-//   PUT  /api/state  ({ state }) -> { version }   (bumps version, persists)
-// Data is kept in ./data.json so it survives restarts.
-import http from 'node:http'
-import { readFile, writeFile } from 'node:fs/promises'
+//   PUT  /api/state  ({ state }) -> { version }
+import https from 'node:https'
+import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, extname, normalize } from 'node:path'
 import os from 'node:os'
+import selfsigned from 'selfsigned'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DIST = join(__dirname, '..', 'dist')
 const DATA = join(__dirname, 'data.json')
+const CERT_DIR = join(__dirname, 'certs')
 const PORT = Number(process.env.PORT) || 3000
 
+// ---- state store ---------------------------------------------------------
 let store = { version: 0, state: null }
 if (existsSync(DATA)) {
   try { store = JSON.parse(readFileSync(DATA, 'utf8')) } catch { /* start fresh */ }
 }
 let saving = null
 async function persist() {
-  // serialize writes so concurrent PUTs don't corrupt the file
   saving = (saving ?? Promise.resolve()).then(() => writeFile(DATA, JSON.stringify(store)))
   return saving
 }
 
+// ---- network addresses ---------------------------------------------------
+function lanAddresses() {
+  const out = []
+  for (const [name, ifaces] of Object.entries(os.networkInterfaces())) {
+    for (const n of ifaces ?? []) {
+      if (n && n.family === 'IPv4' && !n.internal) out.push({ name, address: n.address })
+    }
+  }
+  const rank = (a) => (a.address.startsWith('192.168.') ? 0 : a.address.startsWith('10.') ? 1 : 2)
+  return out.sort((a, b) => rank(a) - rank(b))
+}
+
+// ---- self-signed certificate (cached, regenerated if hosts change) -------
+async function ensureCert() {
+  const keyPath = join(CERT_DIR, 'key.pem')
+  const certPath = join(CERT_DIR, 'cert.pem')
+  const hostsPath = join(CERT_DIR, 'hosts.json')
+  const desired = ['localhost', '127.0.0.1', ...lanAddresses().map((a) => a.address)]
+
+  if (existsSync(keyPath) && existsSync(certPath) && existsSync(hostsPath)) {
+    try {
+      const cached = JSON.parse(readFileSync(hostsPath, 'utf8'))
+      if (desired.every((h) => cached.includes(h))) {
+        return { key: readFileSync(keyPath, 'utf8'), cert: readFileSync(certPath, 'utf8') }
+      }
+      // a new IP appeared -> regenerate covering the union so old links keep working
+      desired.push(...cached.filter((h) => !desired.includes(h)))
+    } catch { /* regenerate */ }
+  }
+
+  const isIp = (h) => /^\d{1,3}(\.\d{1,3}){3}$/.test(h)
+  const altNames = desired.map((h) => (isIp(h) ? { type: 7, ip: h } : { type: 2, value: h }))
+  const pems = await selfsigned.generate([{ name: 'commonName', value: 'TickFlow' }], {
+    days: 825,
+    keySize: 2048,
+    algorithm: 'sha256',
+    extensions: [{ name: 'subjectAltName', altNames }],
+  })
+  await mkdir(CERT_DIR, { recursive: true })
+  await writeFile(keyPath, pems.private)
+  await writeFile(certPath, pems.cert)
+  await writeFile(hostsPath, JSON.stringify(desired))
+  return { key: pems.private, cert: pems.cert }
+}
+
+// ---- request handling ----------------------------------------------------
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
@@ -52,10 +101,9 @@ function readBody(req) {
 }
 
 async function serveStatic(req, res) {
-  // map URL path to a file in dist; fall back to index.html (SPA)
   let pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname)
   let file = normalize(join(DIST, pathname))
-  if (!file.startsWith(DIST)) { res.writeHead(403).end('Forbidden'); return } // path traversal guard
+  if (!file.startsWith(DIST)) { res.writeHead(403).end('Forbidden'); return }
   if (pathname === '/' || !existsSync(file)) file = join(DIST, 'index.html')
   if (!existsSync(file)) {
     res.writeHead(404).end('Build not found — run "npm run build" first.')
@@ -70,7 +118,7 @@ async function serveStatic(req, res) {
   }
 }
 
-const server = http.createServer(async (req, res) => {
+async function handler(req, res) {
   cors(res)
   if (req.method === 'OPTIONS') { res.writeHead(204).end(); return }
 
@@ -102,29 +150,22 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(405).end('Method not allowed')
     return
   }
-
   await serveStatic(req, res)
-})
+}
 
-server.listen(PORT, '0.0.0.0', () => {
-  const nets = os.networkInterfaces()
-  const addrs = []
-  for (const [name, ifaces] of Object.entries(nets)) {
-    for (const n of ifaces ?? []) {
-      if (n && n.family === 'IPv4' && !n.internal) addrs.push({ name, address: n.address })
-    }
-  }
-  // most-likely-LAN first: home Wi-Fi/router ranges (192.168.x, 10.x) before
-  // virtual adapters (WSL/Hyper-V/Docker/VPN, often 172.x).
-  const rank = (a) => (a.address.startsWith('192.168.') ? 0 : a.address.startsWith('10.') ? 1 : 2)
-  addrs.sort((a, b) => rank(a) - rank(b))
-
-  console.log('\n  TickFlow sync server running:\n')
-  console.log(`    Local:    http://localhost:${PORT}`)
+// ---- start ---------------------------------------------------------------
+const { key, cert } = await ensureCert()
+https.createServer({ key, cert }, handler).listen(PORT, '0.0.0.0', () => {
+  console.log('\n  TickFlow sync server running (HTTPS):\n')
+  console.log(`    On this PC:   https://localhost:${PORT}`)
+  const addrs = lanAddresses()
   if (addrs.length) {
-    console.log('\n  Open ONE of these on your other devices (try the 192.168.x one first):')
-    for (const a of addrs) console.log(`    http://${a.address}:${PORT}   (${a.name})`)
-    console.log('\n  Not connecting? Allow Node.js through Windows Firewall on Private networks.')
+    console.log('\n  On other devices (same Wi-Fi), open ONE of these — pick the 192.168.x one:')
+    for (const a of addrs) console.log(`    https://${a.address}:${PORT}   (${a.name})`)
   }
+  console.log('\n  NOTE: it is a self-signed certificate, so each device shows a one-time')
+  console.log('  "Not secure / your connection is not private" warning the first time.')
+  console.log('  Click Advanced -> Proceed/Continue. After that, OS notifications work.')
+  console.log('\n  Not connecting? Allow Node.js through Windows Firewall on Private networks.')
   console.log('\n  Data file:', DATA, '\n  Press Ctrl+C to stop.\n')
 })

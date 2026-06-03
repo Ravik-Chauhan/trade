@@ -41,9 +41,11 @@ if errorlevel 1 ( echo Build failed. & pause & exit /b 1 )
 
 echo(
 echo Starting the sync server. Open the "Network" URL below on your other devices.
+echo It uses HTTPS with a self-signed certificate, so each device shows a one-time
+echo "your connection is not private" warning - click Advanced then Proceed/Continue.
 echo Keep this window open while you use the app. Press Ctrl+C to stop.
 echo(
-start "" http://localhost:3000
+start "" https://localhost:3000
 node server/index.mjs
 
 pause
