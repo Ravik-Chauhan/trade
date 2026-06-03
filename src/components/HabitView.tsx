@@ -146,7 +146,7 @@ function Heatmap({ habit }: { habit: Habit }) {
     return { key, ratio }
   })
   return (
-    <div className="heatmap" style={{ gridTemplateColumns: 'repeat(40, 1fr)' }}>
+    <div className="heatmap heatmap-40">
       {cells.map((c) => (
         <div
           key={c.key}

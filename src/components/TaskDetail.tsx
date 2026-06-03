@@ -468,7 +468,7 @@ function TrackingSection({ task }: { task: Task }) {
           {task.slots.map((slot, i) => (
             <div key={slot.id} className="field" style={{ marginBottom: 8 }}>
               <input
-                style={{ border: 'none', background: 'none', outline: 'none', flex: 1, color: 'var(--text)' }}
+                style={{ border: 'none', background: 'none', outline: 'none', flex: 1, minWidth: 0, color: 'var(--text)' }}
                 value={slot.label}
                 placeholder={`Slot ${i + 1}`}
                 onChange={(e) =>

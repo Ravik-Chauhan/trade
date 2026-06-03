@@ -645,6 +645,7 @@ select {
   background: none;
   outline: none;
   flex: 1;
+  min-width: 0;
   text-align: right;
   color: var(--text);
 }
@@ -980,6 +981,9 @@ select {
   grid-template-columns: repeat(20, 1fr);
   gap: 3px;
   margin-top: 14px;
+}
+.heatmap-40 {
+  grid-template-columns: repeat(40, 1fr);
 }
 .heat-cell {
   aspect-ratio: 1;
@@ -1663,5 +1667,23 @@ select {
   .pomo-ring svg {
     width: 100%;
     height: 100%;
+  }
+  .calendar {
+    padding: 16px 14px 22px;
+  }
+  /* 40-day strip -> two rows of 20 so cells stay tappable */
+  .heatmap-40 {
+    grid-template-columns: repeat(20, 1fr);
+  }
+  /* Eisenhower 2x2 -> single column so quadrants aren't crushed */
+  .matrix-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    grid-auto-rows: auto;
+    overflow-y: auto;
+    padding: 14px;
+  }
+  .matrix-tasks {
+    overflow: visible;
   }
 }
