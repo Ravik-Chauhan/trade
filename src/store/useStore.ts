@@ -442,6 +442,9 @@ export const useStore = create<Store>()(
               const raw = out.repeat as string
               const rule = valid.includes(raw) ? raw : 'none'
               out.recurrence = { ...NO_RECURRENCE, rule }
+            } else {
+              // backfill custom-recurrence fields added in a later version
+              out.recurrence = { ...NO_RECURRENCE, ...(out.recurrence as object) }
             }
             delete out.repeat
             if (typeof out.countdown === 'undefined') out.countdown = false

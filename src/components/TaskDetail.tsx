@@ -30,6 +30,7 @@ const REPEAT_OPTIONS: { value: RepeatRule; label: string }[] = [
   { value: 'weekly', label: 'Weekly' },
   { value: 'monthly', label: 'Monthly' },
   { value: 'yearly', label: 'Yearly' },
+  { value: 'custom', label: 'Custom…' },
 ]
 
 export default function TaskDetail() {
@@ -345,13 +346,18 @@ function RecurrenceEditor({
   disabled: boolean
   onChange: (rec: Recurrence) => void
 }) {
-  const showInterval = value.rule !== 'none' && value.rule !== 'weekdays'
+  const weekStartsMonday = useStore((s) => s.settings.weekStartsMonday)
+  const showInterval = value.rule !== 'none' && value.rule !== 'weekdays' && value.rule !== 'custom'
   const unitLabel: Partial<Record<RepeatRule, string>> = {
     daily: 'day(s)',
     weekly: 'week(s)',
     monthly: 'month(s)',
     yearly: 'year(s)',
   }
+  const weekdayOrder = weekStartsMonday ? [1, 2, 3, 4, 5, 6, 0] : [0, 1, 2, 3, 4, 5, 6]
+  const weekdayShort = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
+  const toggleNum = (list: number[], n: number) =>
+    list.includes(n) ? list.filter((x) => x !== n) : [...list, n]
   return (
     <div style={{ marginTop: 8, opacity: disabled ? 0.5 : 1, pointerEvents: disabled ? 'none' : 'auto' }}>
       <div className="field">
@@ -361,6 +367,15 @@ function RecurrenceEditor({
           onChange={(e) => {
             const rule = e.target.value as RepeatRule
             if (rule === 'none') onChange({ ...NO_RECURRENCE })
+            else if (rule === 'custom')
+              onChange({
+                ...value,
+                rule,
+                count: 0,
+                customUnit: value.customUnit ?? 'week',
+                weekdays: value.weekdays ?? [],
+                monthDays: value.monthDays ?? [],
+              })
             else onChange({ ...value, rule, count: 0 })
           }}
         >
@@ -383,6 +398,66 @@ function RecurrenceEditor({
             />
             <span style={{ color: 'var(--text-muted)' }}>{unitLabel[value.rule]}</span>
           </div>
+        </div>
+      )}
+
+      {value.rule === 'custom' && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+            <button
+              type="button"
+              className={cx('pill', value.customUnit === 'week' && 'active')}
+              onClick={() => onChange({ ...value, customUnit: 'week' })}
+            >
+              Weekly
+            </button>
+            <button
+              type="button"
+              className={cx('pill', value.customUnit === 'month' && 'active')}
+              onClick={() => onChange({ ...value, customUnit: 'month' })}
+            >
+              Monthly
+            </button>
+          </div>
+
+          {value.customUnit === 'week' ? (
+            <>
+              <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 6 }}>Repeat on these days</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {weekdayOrder.map((wd) => (
+                  <button
+                    key={wd}
+                    type="button"
+                    className={cx('pill', (value.weekdays ?? []).includes(wd) && 'active')}
+                    style={{ padding: '5px 10px' }}
+                    onClick={() => onChange({ ...value, weekdays: toggleNum(value.weekdays ?? [], wd) })}
+                  >
+                    {weekdayShort[wd]}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 6 }}>Repeat on these dates</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 5 }}>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((dom) => (
+                  <button
+                    key={dom}
+                    type="button"
+                    className={cx('pill', (value.monthDays ?? []).includes(dom) && 'active')}
+                    style={{ padding: '5px 0', justifyContent: 'center', borderRadius: 8 }}
+                    onClick={() => onChange({ ...value, monthDays: toggleNum(value.monthDays ?? [], dom) })}
+                  >
+                    {dom}
+                  </button>
+                ))}
+              </div>
+              <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 6 }}>
+                Dates past the end of a short month (e.g. 31st) are skipped that month.
+              </div>
+            </>
+          )}
         </div>
       )}
 

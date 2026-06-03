@@ -2,7 +2,7 @@ export type Priority = 0 | 1 | 2 | 3 // none, low, medium, high
 
 export type ViewMode = 'list' | 'kanban' | 'calendar'
 
-export type RepeatRule = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'weekdays'
+export type RepeatRule = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'weekdays' | 'custom'
 
 export type GroupMode = 'none' | 'list' | 'priority' | 'dueDate' | 'tag'
 
@@ -14,6 +14,11 @@ export interface Recurrence {
   endDate: string | null
   endCount: number // total occurrences when endType === 'afterCount'
   count: number // occurrences already generated
+  // 'custom' rule: repeat on specific weekdays (e.g. Mon & Thu) or month-days
+  // (e.g. the 2nd & 14th). customUnit picks which set applies.
+  customUnit: 'week' | 'month'
+  weekdays: number[] // 0=Sun..6=Sat, used when customUnit === 'week'
+  monthDays: number[] // 1..31, used when customUnit === 'month'
 }
 
 export const NO_RECURRENCE: Recurrence = {
@@ -23,6 +28,9 @@ export const NO_RECURRENCE: Recurrence = {
   endDate: null,
   endCount: 10,
   count: 0,
+  customUnit: 'week',
+  weekdays: [],
+  monthDays: [],
 }
 
 export interface Subtask {

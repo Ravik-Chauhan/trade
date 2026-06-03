@@ -112,7 +112,7 @@ export function createSeedState(): AppState {
       t('Call the dentist', personalId, { dueDate: yesterday, priority: 2, tags: ['errand'] }),
       t('Morning run', personalId, {
         dueDate: today, tags: ['focus'],
-        recurrence: { rule: 'daily', interval: 1, endType: 'never', endDate: null, endCount: 10, count: 0 },
+        recurrence: { ...NO_RECURRENCE, rule: 'daily' },
       }),
       t('Read 20 pages', personalId, { dueDate: today }),
       t('Milk', groceriesId, { tags: ['errand'] }),

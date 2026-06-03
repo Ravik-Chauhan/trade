@@ -97,6 +97,26 @@ export function nextOccurrence(value: string, rule: RepeatRule): string {
   return stepDate(value, rule, 1)
 }
 
+/**
+ * Next date for a 'custom' recurrence: the soonest day strictly after `value`
+ * that lands on one of the selected weekdays (customUnit 'week') or month-days
+ * (customUnit 'month'). Falls back to a plain weekly/monthly step when no days
+ * are selected. Month-days that don't exist in a given month are skipped
+ * naturally (e.g. the 31st in February).
+ */
+function stepCustom(value: string, rec: Recurrence): string {
+  const d = parseISO(value)
+  const hasTime = value.length > 10
+  const fmt = (x: Date) => (hasTime ? x.toISOString() : format(x, 'yyyy-MM-dd'))
+  const week = rec.customUnit === 'week'
+  const days = week ? rec.weekdays ?? [] : rec.monthDays ?? []
+  if (days.length === 0) return stepDate(value, week ? 'weekly' : 'monthly', rec.interval)
+  const match = (x: Date) => (week ? days.includes(x.getDay()) : days.includes(x.getDate()))
+  let next = addDays(d, 1)
+  for (let i = 0; i < 400 && !match(next); i++) next = addDays(next, 1)
+  return fmt(next)
+}
+
 export interface AdvanceResult {
   date: string | null // null when the series has ended
   recurrence: Recurrence
@@ -109,7 +129,7 @@ export interface AdvanceResult {
  */
 export function advanceRecurrence(value: string, rec: Recurrence): AdvanceResult {
   if (rec.rule === 'none') return { date: null, recurrence: rec }
-  const next = stepDate(value, rec.rule, rec.interval)
+  const next = rec.rule === 'custom' ? stepCustom(value, rec) : stepDate(value, rec.rule, rec.interval)
   const newCount = rec.count + 1
 
   if (rec.endType === 'afterCount' && newCount >= rec.endCount) {
@@ -124,8 +144,31 @@ export function advanceRecurrence(value: string, rec: Recurrence): AdvanceResult
   return { date: next, recurrence: { ...rec, count: newCount } }
 }
 
+const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = n % 100
+  return n + (s[(v - 20) % 10] || s[v] || s[0])
+}
+
 export function recurrenceLabel(rec: Recurrence): string {
   if (rec.rule === 'none') return 'No repeat'
+  if (rec.rule === 'custom') {
+    if (rec.customUnit === 'week') {
+      const sel = [...(rec.weekdays ?? [])].sort((a, b) => a - b).map((i) => WEEKDAY_NAMES[i])
+      const days = sel.length ? sel.join(', ') : 'every day'
+      let base = `Weekly on ${days}`
+      if (rec.endType === 'afterCount') base += ` · ${rec.endCount}×`
+      if (rec.endType === 'onDate' && rec.endDate) base += ` · until ${rec.endDate}`
+      return base
+    }
+    const sel = [...(rec.monthDays ?? [])].sort((a, b) => a - b).map(ordinal)
+    const days = sel.length ? sel.join(', ') : 'every day'
+    let base = `Monthly on ${days}`
+    if (rec.endType === 'afterCount') base += ` · ${rec.endCount}×`
+    if (rec.endType === 'onDate' && rec.endDate) base += ` · until ${rec.endDate}`
+    return base
+  }
   const unit: Record<RepeatRule, string> = {
     none: '',
     daily: 'day',
@@ -133,6 +176,7 @@ export function recurrenceLabel(rec: Recurrence): string {
     monthly: 'month',
     yearly: 'year',
     weekdays: 'weekday',
+    custom: '',
   }
   let base: string
   if (rec.rule === 'weekdays') base = 'Every weekday'

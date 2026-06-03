@@ -60,6 +60,23 @@ describe('advanceRecurrence', () => {
     const r = advanceRecurrence('2026-06-01', rec({ rule: 'daily', endType: 'onDate', endDate: '2026-06-30' }))
     expect(r.date).toBe('2026-06-02')
   })
+
+  // 2026-06-01 is a Monday.
+  it('custom weekly steps to the next selected weekday', () => {
+    const monThu = rec({ rule: 'custom', customUnit: 'week', weekdays: [1, 4] })
+    expect(advanceRecurrence('2026-06-01', monThu).date).toBe('2026-06-04') // Mon -> Thu
+    expect(advanceRecurrence('2026-06-04', monThu).date).toBe('2026-06-08') // Thu -> next Mon
+  })
+  it('custom monthly steps to the next selected month-day, crossing months', () => {
+    const r = rec({ rule: 'custom', customUnit: 'month', monthDays: [2, 14] })
+    expect(advanceRecurrence('2026-06-01', r).date).toBe('2026-06-02')
+    expect(advanceRecurrence('2026-06-02', r).date).toBe('2026-06-14')
+    expect(advanceRecurrence('2026-06-14', r).date).toBe('2026-07-02')
+  })
+  it('custom monthly skips month-days that do not exist (31st past Feb)', () => {
+    const r = rec({ rule: 'custom', customUnit: 'month', monthDays: [31] })
+    expect(advanceRecurrence('2026-01-31', r).date).toBe('2026-03-31') // skips Feb
+  })
 })
 
 describe('recurrenceLabel', () => {
@@ -72,6 +89,10 @@ describe('recurrenceLabel', () => {
   it('appends end conditions', () => {
     expect(recurrenceLabel(rec({ rule: 'daily', endType: 'afterCount', endCount: 5 }))).toContain('5×')
     expect(recurrenceLabel(rec({ rule: 'daily', endType: 'onDate', endDate: '2026-12-31' }))).toContain('until 2026-12-31')
+  })
+  it('labels custom rules', () => {
+    expect(recurrenceLabel(rec({ rule: 'custom', customUnit: 'week', weekdays: [1, 4] }))).toBe('Weekly on Mon, Thu')
+    expect(recurrenceLabel(rec({ rule: 'custom', customUnit: 'month', monthDays: [14, 2] }))).toBe('Monthly on 2nd, 14th')
   })
 })
 
