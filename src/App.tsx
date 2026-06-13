@@ -15,6 +15,7 @@ import SettingsView from './components/SettingsView'
 import MatrixView from './components/MatrixView'
 import Toasts from './components/Toasts'
 import { useReminderEngine } from './hooks/useReminderEngine'
+import { useNativeNotifications } from './hooks/useNativeNotifications'
 import { useSync } from './hooks/useSync'
 
 function useTheme() {
@@ -43,6 +44,7 @@ function useTheme() {
 export default function App() {
   useTheme()
   useReminderEngine()
+  useNativeNotifications()
   useSync()
   const selection = useUI((s) => s.selection)
   const view = useUI((s) => s.view)

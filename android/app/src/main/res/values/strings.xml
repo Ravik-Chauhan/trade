@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TickFlow</string>
+    <string name="title_activity_main">TickFlow</string>
+    <string name="package_name">com.tickflow.app</string>
+    <string name="custom_url_scheme">com.tickflow.app</string>
+</resources>

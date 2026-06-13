@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Download, Upload, RotateCcw, Sun, Moon, Monitor, Bell, BellRing, Cloud, CloudOff, RefreshCw, UploadCloud, DownloadCloud } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useToasts } from '../store/useToasts'
@@ -12,6 +12,14 @@ import {
   showNotification,
   chime,
 } from '../lib/notifications'
+import {
+  isNative,
+  getNativePermission,
+  requestNativePermission,
+  syncNativeReminders,
+  sendNativeTest,
+  type NativePerm,
+} from '../lib/nativeNotifications'
 import type { AppState } from '../types'
 
 export default function SettingsView() {
@@ -22,10 +30,26 @@ export default function SettingsView() {
   const pushToast = useToasts((s) => s.push)
   const fileRef = useRef<HTMLInputElement>(null)
   const [perm, setPerm] = useState<NotificationPermission>(notificationPermission())
-  const insecure = typeof window !== 'undefined' && !window.isSecureContext
+  const native = isNative()
+  const [nativePerm, setNativePerm] = useState<NativePerm>('prompt')
+  const insecure = !native && typeof window !== 'undefined' && !window.isSecureContext
   const host = typeof window !== 'undefined' ? window.location.host : ''
 
+  useEffect(() => {
+    if (native) getNativePermission().then(setNativePerm)
+  }, [native])
+
   const enableNotifications = async () => {
+    if (native) {
+      const ok = await requestNativePermission()
+      setNativePerm(ok ? 'granted' : 'denied')
+      if (ok) {
+        const { tasks, habits } = useStore.getState()
+        await syncNativeReminders(tasks, habits)
+        pushToast({ title: 'Notifications enabled', body: 'Reminders will alert you even when the app is closed.', emoji: '🔔' })
+      }
+      return
+    }
     const p = await requestNotificationPermission()
     setPerm(p)
     if (p === 'granted') showNotification('🔔 Notifications enabled', 'TickFlow will alert you when reminders are due.')
@@ -64,11 +88,9 @@ export default function SettingsView() {
 
   const sendTest = () => {
     chime()
-    const shown = showNotification('✅ Test reminder', 'This is what a reminder looks like.')
+    if (native) void sendNativeTest()
+    else showNotification('✅ Test reminder', 'This is what a reminder looks like.')
     pushToast({ title: 'Test reminder', body: 'This is what a reminder looks like.', emoji: '✅' })
-    if (!shown && perm !== 'granted') {
-      // permission not granted — the in-app toast above still appears
-    }
   }
 
   const exportData = () => {
@@ -138,21 +160,31 @@ export default function SettingsView() {
       <Group title="Notifications & Reminders">
         <div className="switch">
           <div>
-            <div style={{ fontWeight: 600 }}>Browser notifications</div>
+            <div style={{ fontWeight: 600 }}>{native ? 'Notifications' : 'Browser notifications'}</div>
             <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-              {insecure
-                ? `🔒 This address (http://${host}) is insecure, so the browser blocks notifications. Open the app over its https:// address (the sync server now uses HTTPS) and accept the one-time certificate warning.`
-                : !notificationsSupported()
-                  ? 'Not supported in this browser'
-                  : perm === 'granted'
-                    ? '✅ Enabled — reminders will pop up while TickFlow is open'
-                    : perm === 'denied'
-                      ? '🚫 Blocked — enable notifications for this site in your browser settings'
-                      : 'Allow notifications to get reminder pop-ups'}
+              {native
+                ? nativePerm === 'granted'
+                  ? '✅ Enabled — reminders fire even when the app is closed'
+                  : nativePerm === 'denied'
+                    ? '🚫 Blocked — allow notifications for TickFlow in Android settings'
+                    : 'Allow notifications to get reminders even when the app is closed'
+                : insecure
+                  ? `🔒 This address (http://${host}) is insecure, so the browser blocks notifications. Open the app over its https:// address (the sync server now uses HTTPS) and accept the one-time certificate warning.`
+                  : !notificationsSupported()
+                    ? 'Not supported in this browser'
+                    : perm === 'granted'
+                      ? '✅ Enabled — reminders will pop up while TickFlow is open'
+                      : perm === 'denied'
+                        ? '🚫 Blocked — enable notifications for this site in your browser settings'
+                        : 'Allow notifications to get reminder pop-ups'}
             </div>
           </div>
-          {perm !== 'granted' && (
-            <button className="btn primary" onClick={enableNotifications} disabled={insecure || !notificationsSupported() || perm === 'denied'}>
+          {(native ? nativePerm !== 'granted' : perm !== 'granted') && (
+            <button
+              className="btn primary"
+              onClick={enableNotifications}
+              disabled={native ? nativePerm === 'denied' : insecure || !notificationsSupported() || perm === 'denied'}
+            >
               <Bell size={15} /> Enable
             </button>
           )}
@@ -161,9 +193,9 @@ export default function SettingsView() {
           <button className="btn" onClick={sendTest}><BellRing size={15} /> Send test reminder</button>
         </div>
         <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-          The sync server runs over <strong>https</strong>, so OS notifications work on this PC and on
-          your phone — just accept the one-time self-signed certificate warning per device, then click
-          Enable. They fire only while a TickFlow tab is open; the in-app toast + chime always work.
+          {native
+            ? 'Reminders are scheduled on your device, so task reminders and habit times alert you even when TickFlow is closed. The in-app toast + chime also play while the app is open.'
+            : 'OS notifications need a secure page (localhost or https), so they only pop up while a TickFlow tab is open. The in-app toast + chime always work.'}
         </div>
       </Group>
 
