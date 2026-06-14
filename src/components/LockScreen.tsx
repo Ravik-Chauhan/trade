@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
-import { Delete } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Delete, Fingerprint } from 'lucide-react'
 import { useLock, type LockType } from '../store/useLock'
 import { hashSecret } from '../lib/lock'
+import { biometricAvailable, biometricAuthenticate } from '../lib/biometric'
 import { cx } from '../lib/utils'
 
 /** Numeric PIN pad. Calls onComplete with the entered digits on ✓. */
@@ -105,8 +106,28 @@ export default function LockScreen() {
   const locked = useLock((s) => s.locked)
   const type = useLock((s) => s.type)
   const hash = useLock((s) => s.hash)
+  const biometric = useLock((s) => s.biometric)
   const unlock = useLock((s) => s.unlock)
   const [error, setError] = useState(false)
+  const [bioAvail, setBioAvail] = useState(false)
+  const bioTried = useRef(false)
+
+  useEffect(() => {
+    if (biometric) biometricAvailable().then(setBioAvail)
+  }, [biometric])
+
+  const tryBiometric = useCallback(async () => {
+    if (await biometricAuthenticate()) unlock()
+  }, [unlock])
+
+  // auto-prompt biometrics once each time the app locks
+  useEffect(() => {
+    if (enabled && locked && biometric && bioAvail && !bioTried.current) {
+      bioTried.current = true
+      void tryBiometric()
+    }
+    if (!locked) bioTried.current = false
+  }, [enabled, locked, biometric, bioAvail, tryBiometric])
 
   if (!enabled || !locked) return null
 
@@ -130,6 +151,11 @@ export default function LockScreen() {
           {error ? `Wrong ${type === 'pin' ? 'PIN' : 'pattern'} — try again` : `Enter your ${type === 'pin' ? 'PIN' : 'pattern'} to unlock`}
         </div>
         <LockInput type={type} onComplete={onComplete} error={error} />
+        {biometric && bioAvail && (
+          <button className="btn" style={{ marginTop: 20 }} onClick={tryBiometric}>
+            <Fingerprint size={16} /> Use biometrics
+          </button>
+        )}
       </div>
     </div>
   )

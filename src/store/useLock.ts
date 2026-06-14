@@ -13,6 +13,7 @@ interface LockStore {
   setup: (type: LockType, hash: string, lockOnResume: boolean) => void
   disable: () => void
   setLockOnResume: (v: boolean) => void
+  setBiometric: (v: boolean) => void
   lock: () => void
   unlock: () => void
 }
@@ -29,8 +30,9 @@ export const useLock = create<LockStore>()(
       lockOnResume: true,
       locked: false,
       setup: (type, hash, lockOnResume) => set({ enabled: true, type, hash, lockOnResume, locked: false }),
-      disable: () => set({ enabled: false, hash: null, locked: false }),
+      disable: () => set({ enabled: false, hash: null, locked: false, biometric: false }),
       setLockOnResume: (lockOnResume) => set({ lockOnResume }),
+      setBiometric: (biometric) => set({ biometric }),
       lock: () => set((s) => (s.enabled ? { locked: true } : s)),
       unlock: () => set({ locked: false }),
     }),

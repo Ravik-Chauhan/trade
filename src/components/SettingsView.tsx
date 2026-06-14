@@ -3,6 +3,7 @@ import { Download, Upload, RotateCcw, Sun, Moon, Monitor, Bell, BellRing, Cloud,
 import { useStore } from '../store/useStore'
 import { useToasts } from '../store/useToasts'
 import { useLock } from '../store/useLock'
+import { biometricAvailable, biometricAuthenticate } from '../lib/biometric'
 import LockSetup from './LockSetup'
 import { useSyncStatus } from '../store/useSyncStatus'
 import { snapshot, pushServer, fetchServer, setLocalVersion } from '../lib/sync'
@@ -39,8 +40,21 @@ export default function SettingsView() {
 
   const lock = useLock()
   const [showLockSetup, setShowLockSetup] = useState(false)
+  const [bioAvail, setBioAvail] = useState(false)
+  useEffect(() => {
+    biometricAvailable().then(setBioAvail)
+  }, [])
   const disableLock = () => {
     if (window.confirm('Turn off the app lock?')) lock.disable()
+  }
+  const toggleBiometric = async (v: boolean) => {
+    if (v) {
+      // confirm enrollment works before enabling
+      if (await biometricAuthenticate('Confirm biometrics to enable unlock')) lock.setBiometric(true)
+      else pushToast({ title: 'Biometrics not enabled', body: 'Could not verify — check fingerprint/face setup.', emoji: '⚠️' })
+    } else {
+      lock.setBiometric(false)
+    }
   }
 
   useEffect(() => {
@@ -236,6 +250,13 @@ export default function SettingsView() {
               value={lock.lockOnResume}
               onChange={(v) => lock.setLockOnResume(v)}
             />
+            {bioAvail && (
+              <Toggle
+                label="Unlock with fingerprint / face"
+                value={lock.biometric}
+                onChange={toggleBiometric}
+              />
+            )}
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <button className="btn" onClick={() => setShowLockSetup(true)}>Change PIN / pattern</button>
               <button className="btn" onClick={disableLock}>Turn off lock</button>
