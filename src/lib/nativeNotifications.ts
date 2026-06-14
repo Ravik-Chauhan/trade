@@ -14,7 +14,7 @@ export type NativePerm = 'granted' | 'denied' | 'prompt'
 export const isNative = (): boolean => Capacitor.isNativePlatform()
 
 const TEST_ID = 2147483646
-const MAX_SCHEDULED = 60 // keep well under Android's alarm limits
+const MAX_SCHEDULED = 120 // 15-min re-arm series multiply the count; stay under OS limits
 const CHANNEL_ID = 'reminders'
 const SMALL_ICON = 'ic_stat_notify'
 const PRIVATE_TITLE = 'TickFlow'
@@ -102,42 +102,58 @@ export async function requestNativePermission(): Promise<boolean> {
 function buildNotifications(tasks: Task[], habits: Habit[]): LocalNotificationSchema[] {
   const out: LocalNotificationSchema[] = []
   const now = Date.now()
-  const HOUR = 3600_000
-  const NAG_WINDOW = 24 * HOUR // keep re-reminding for up to a day after the time
+  const todayKey = todayISO()
+  const INTERVAL = 15 * 60_000 // re-remind every 15 minutes
+  const NAG_WINDOW = 3 * 3600_000 // for up to 3 hours after the time
+  const MAX_PER = 12 // cap nag copies per reminder
+
+  const isActiveToday = (h: Habit) => {
+    if (h.freq.type === 'weekly' || h.freq.days.length === 0) return true
+    return h.freq.days.includes(new Date().getDay())
+  }
+
+  // Android 14+ lets users dismiss "ongoing" notifications, so we re-fire each
+  // reminder every 15 min (only future slots, anchored to its time so a resync
+  // recomputes the same times) — it reappears after "Clear all" until it's acted
+  // on (which drops it on the next resync).
+  const addNag = (keyBase: string, firstTs: number, title: string, body: string, extra: ReminderExtra) => {
+    let i = 0
+    for (let ts = firstTs; ts <= firstTs + NAG_WINDOW && i < MAX_PER; ts += INTERVAL) {
+      if (ts <= now + 1000) continue
+      out.push({ id: hashId(`${keyBase}:${i}`), title, body, schedule: { at: new Date(ts), allowWhileIdle: true }, extra })
+      i++
+    }
+  }
 
   for (const t of tasks) {
     if (t.completed) continue
-    // Explicit reminders. Android 14+ lets users dismiss "ongoing" notifications,
-    // so we make the reminder re-fire hourly until the task is completed (which
-    // removes it on the next resync) — it reappears even after "Clear all".
+    const title = t.hidePrivate ? PRIVATE_TITLE : t.title || 'Task'
+    const body = t.hidePrivate ? PRIVATE_BODY : t.dueDate ? `Due ${t.dueDate.slice(0, 10)}` : 'Reminder'
+    // explicit reminders: 15-min re-arm series starting at the reminder time
     for (const r of t.reminders) {
       const ts = Date.parse(r)
       if (Number.isNaN(ts) || ts < now - NAG_WINDOW) continue
-      // first fire at the reminder time; if already past, the next hourly slot
-      // after now (slot is anchored to ts so a resync recomputes the same time
-      // and doesn't re-pop it immediately)
-      let fireAt = ts
-      if (fireAt <= now + 1000) fireAt = ts + (Math.floor((now - ts) / HOUR) + 1) * HOUR
-      out.push({
-        id: hashId(`task:${t.id}:${r}`),
-        title: t.hidePrivate ? PRIVATE_TITLE : t.title || 'Task',
-        body: t.hidePrivate ? PRIVATE_BODY : t.dueDate ? `Due ${t.dueDate.slice(0, 10)}` : 'Reminder',
-        schedule: { at: new Date(fireAt), repeats: true, every: 'hour', count: 24, allowWhileIdle: true },
-        extra: { kind: 'task', id: t.id } satisfies ReminderExtra,
-      })
+      addNag(`task:${t.id}:${r}`, ts, title, body, { kind: 'task', id: t.id })
     }
-    // tracked-task slots -> a daily reminder at each slot time
+    // tracked-task slots: a daily base alarm + today's 15-min re-arm (until done)
     if (t.trackingEnabled) {
+      const doneSlots = new Set(t.completionLog[todayKey] ?? [])
       for (const slot of t.slots) {
         const hm = slot.time ? parseHM(slot.time) : null
         if (!hm) continue
+        const sbody = t.hidePrivate ? PRIVATE_BODY : `${slot.label || 'Reminder'} · ${slot.time}`
+        const extra: ReminderExtra = { kind: 'slot', id: t.id, slotId: slot.id }
         out.push({
           id: hashId(`slot:${t.id}:${slot.id}`),
-          title: t.hidePrivate ? PRIVATE_TITLE : t.title || 'Task',
-          body: t.hidePrivate ? PRIVATE_BODY : `${slot.label || 'Reminder'} · ${slot.time}`,
+          title,
+          body: sbody,
           schedule: { on: { hour: hm.hour, minute: hm.minute }, allowWhileIdle: true },
-          extra: { kind: 'slot', id: t.id, slotId: slot.id } satisfies ReminderExtra,
+          extra,
         })
+        if (!doneSlots.has(slot.id)) {
+          const baseToday = Date.parse(`${todayKey}T${slot.time}`)
+          if (!Number.isNaN(baseToday)) addNag(`slotnag:${t.id}:${slot.id}`, baseToday + INTERVAL, title, sbody, extra)
+        }
       }
     }
   }
@@ -148,30 +164,25 @@ function buildNotifications(tasks: Task[], habits: Habit[]): LocalNotificationSc
     if (!hm) continue
     const title = h.hidePrivate ? PRIVATE_TITLE : `${h.emoji || '🎯'} ${h.name}`
     const body = h.hidePrivate ? PRIVATE_BODY : `Time for your habit · goal ${h.goal} ${h.unit}`.trim()
+    const extra: ReminderExtra = { kind: 'habit', id: h.id }
+    // daily base alarm(s) so it still fires when the app is never opened
     if (h.freq.type === 'daily' && h.freq.days.length > 0) {
-      // specific weekdays -> one weekly schedule each (Capacitor weekday: 1=Sun..7=Sat)
       for (const wd of h.freq.days) {
-        out.push({
-          id: hashId(`habit:${h.id}:${wd}`),
-          title,
-          body,
-          schedule: { on: { weekday: wd + 1, hour: hm.hour, minute: hm.minute }, allowWhileIdle: true },
-          extra: { kind: 'habit', id: h.id } satisfies ReminderExtra,
-        })
+        out.push({ id: hashId(`habit:${h.id}:${wd}`), title, body, schedule: { on: { weekday: wd + 1, hour: hm.hour, minute: hm.minute }, allowWhileIdle: true }, extra })
       }
     } else {
-      out.push({
-        id: hashId(`habit:${h.id}`),
-        title,
-        body,
-        schedule: { on: { hour: hm.hour, minute: hm.minute }, allowWhileIdle: true },
-        extra: { kind: 'habit', id: h.id } satisfies ReminderExtra,
-      })
+      out.push({ id: hashId(`habit:${h.id}`), title, body, schedule: { on: { hour: hm.hour, minute: hm.minute }, allowWhileIdle: true }, extra })
+    }
+    // today's 15-min re-arm (until the habit's goal is met today)
+    const doneToday = (h.log[todayKey] ?? 0) >= h.goal
+    if (!doneToday && isActiveToday(h)) {
+      const baseToday = Date.parse(`${todayKey}T${h.reminderTime}`)
+      if (!Number.isNaN(baseToday)) addNag(`habitnag:${h.id}`, baseToday + INTERVAL, title, body, extra)
     }
   }
 
-  // sticky + actionable: ongoing (can't be swiped / survives "clear all") and
-  // autoCancel off, so the reminder stays until Complete/Skip is tapped.
+  // sticky + actionable: ongoing + autoCancel off (best-effort on Android 14+),
+  // with Complete / Skip actions; the 15-min re-arm guarantees reappearance.
   return out.slice(0, MAX_SCHEDULED).map((n) => ({
     ...n,
     channelId: CHANNEL_ID,
