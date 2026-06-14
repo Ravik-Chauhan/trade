@@ -7,6 +7,7 @@ export interface ReminderInstance {
   title: string
   body: string
   emoji: string
+  private: boolean // hide details in the OS notification
 }
 
 function isRequiredToday(habit: Habit, date: Date): boolean {
@@ -35,6 +36,7 @@ export function collectReminders(tasks: Task[], habits: Habit[], now: Date): Rem
         title: t.title || 'Task',
         body: t.dueDate ? `Due ${t.dueDate.slice(0, 10)}` : 'Reminder',
         emoji: '✅',
+        private: t.hidePrivate,
       })
     }
     // tracked-task slot reminders (e.g. meds morning/evening)
@@ -50,6 +52,7 @@ export function collectReminders(tasks: Task[], habits: Habit[], now: Date): Rem
           title: t.title || 'Task',
           body: `${slot.label} dose`,
           emoji: '💊',
+          private: t.hidePrivate,
         })
       }
     }
@@ -67,6 +70,7 @@ export function collectReminders(tasks: Task[], habits: Habit[], now: Date): Rem
       title: h.name,
       body: `Time for your habit · goal ${h.goal} ${h.unit}`,
       emoji: h.emoji || '🎯',
+      private: h.hidePrivate,
     })
   }
 

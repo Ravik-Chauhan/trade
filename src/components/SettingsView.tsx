@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Download, Upload, RotateCcw, Sun, Moon, Monitor, Bell, BellRing, Cloud, CloudOff, RefreshCw, UploadCloud, DownloadCloud } from 'lucide-react'
+import { Download, Upload, RotateCcw, Sun, Moon, Monitor, Bell, BellRing, Cloud, CloudOff, RefreshCw, UploadCloud, DownloadCloud, Lock, ShieldCheck } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useToasts } from '../store/useToasts'
+import { useLock } from '../store/useLock'
+import LockSetup from './LockSetup'
 import { useSyncStatus } from '../store/useSyncStatus'
 import { snapshot, pushServer, fetchServer, setLocalVersion } from '../lib/sync'
 import { cx, LIST_COLORS } from '../lib/utils'
@@ -34,6 +36,12 @@ export default function SettingsView() {
   const [nativePerm, setNativePerm] = useState<NativePerm>('prompt')
   const insecure = !native && typeof window !== 'undefined' && !window.isSecureContext
   const host = typeof window !== 'undefined' ? window.location.host : ''
+
+  const lock = useLock()
+  const [showLockSetup, setShowLockSetup] = useState(false)
+  const disableLock = () => {
+    if (window.confirm('Turn off the app lock?')) lock.disable()
+  }
 
   useEffect(() => {
     if (native) getNativePermission().then(setNativePerm)
@@ -203,6 +211,39 @@ export default function SettingsView() {
         </div>
       </Group>
 
+      <Group title="App Lock">
+        <div className="switch">
+          <div>
+            <div style={{ fontWeight: 600 }}>
+              {lock.enabled ? <><ShieldCheck size={14} style={{ verticalAlign: -2, color: 'var(--green, #36b37e)' }} /> Lock is on</> : 'Lock TickFlow'}
+            </div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+              {lock.enabled
+                ? `Protected with a ${lock.type === 'pin' ? 'PIN' : 'pattern'}. Asks to unlock when you open the app.`
+                : 'Require a PIN or pattern to open the app.'}
+            </div>
+          </div>
+          {!lock.enabled && (
+            <button className="btn primary" onClick={() => setShowLockSetup(true)}>
+              <Lock size={15} /> Set up
+            </button>
+          )}
+        </div>
+        {lock.enabled && (
+          <>
+            <Toggle
+              label="Lock when returning to the app"
+              value={lock.lockOnResume}
+              onChange={(v) => lock.setLockOnResume(v)}
+            />
+            <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+              <button className="btn" onClick={() => setShowLockSetup(true)}>Change PIN / pattern</button>
+              <button className="btn" onClick={disableLock}>Turn off lock</button>
+            </div>
+          </>
+        )}
+      </Group>
+
       <Group title="Tasks">
         <Toggle label="Show completed tasks" value={settings.showCompleted} onChange={(v) => updateSettings({ showCompleted: v })} />
         <Toggle label="Week starts on Monday" value={settings.weekStartsMonday} onChange={(v) => updateSettings({ weekStartsMonday: v })} />
@@ -268,6 +309,8 @@ export default function SettingsView() {
           All your data is stored locally in this browser. Export regularly to keep a backup.
         </div>
       </Group>
+
+      {showLockSetup && <LockSetup onClose={() => setShowLockSetup(false)} />}
     </div>
   )
 }

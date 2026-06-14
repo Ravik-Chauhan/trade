@@ -45,7 +45,9 @@ export function useReminderEngine() {
       for (const r of due) {
         fired.add(r.key)
         if (!silent) {
-          const shown = showNotification(`${r.emoji} ${r.title}`, r.body)
+          const shown = r.private
+            ? showNotification('🔔 TickFlow', 'You have a new reminder')
+            : showNotification(`${r.emoji} ${r.title}`, r.body)
           chime()
           // always show in-app toast too (covers denied/unsupported notifications)
           push({ title: r.title, body: r.body, emoji: r.emoji })

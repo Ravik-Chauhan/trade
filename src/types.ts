@@ -64,6 +64,7 @@ export interface Task {
   reminders: string[] // multiple reminders (ISO datetimes)
   countdown: boolean // show days-remaining countdown
   recurrenceLog: string[] // yyyy-mm-dd of completed recurring occurrences
+  hidePrivate: boolean // hide reminder details in OS notifications
   // daily multi-slot tracking (e.g. take meds morning & evening)
   trackingEnabled: boolean
   slots: TrackingSlot[]
@@ -137,6 +138,7 @@ export interface Habit {
   archived: boolean
   createdAt: string
   log: HabitLog
+  hidePrivate: boolean // hide reminder details in OS notifications
 }
 
 export interface PomodoroSession {

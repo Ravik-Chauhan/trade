@@ -12,6 +12,7 @@ import {
   Check,
   Star,
   Save,
+  EyeOff,
   List as ListIcon,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
@@ -41,7 +42,7 @@ const REPEAT_OPTIONS: { value: RepeatRule; label: string }[] = [
 // never clobbers a completion logged while editing.
 const BUFFERED: (keyof Task)[] = [
   'title', 'notes', 'kind', 'dueDate', 'hasTime', 'startDate', 'listId', 'columnId',
-  'priority', 'tags', 'recurrence', 'reminders', 'countdown', 'subtasks',
+  'priority', 'tags', 'recurrence', 'reminders', 'countdown', 'subtasks', 'hidePrivate',
 ]
 const pick = (t: Task): Partial<Task> =>
   BUFFERED.reduce((o, k) => ({ ...o, [k]: t[k] }), {} as Partial<Task>)
@@ -270,6 +271,20 @@ export default function TaskDetail() {
           </button>
         </div>
         </>)}
+
+        <div className="detail-section">
+          <div className="field">
+            <label><EyeOff size={15} /> Hide details in notifications</label>
+            <button
+              className={cx('toggle', draft.hidePrivate && 'on')}
+              onClick={() => patch({ hidePrivate: !draft.hidePrivate })}
+            />
+          </div>
+          <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>
+            When on, this task's reminders show only “You have a new reminder” — the title and details
+            stay hidden on the lock screen until you open the app.
+          </div>
+        </div>
 
         <div className="detail-section">
           <div className="detail-label"><Flag size={12} style={{ verticalAlign: -1 }} /> Priority</div>

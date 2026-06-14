@@ -94,6 +94,7 @@ export const useStore = create<Store>()(
           reminders: partial.reminders ?? [],
           countdown: partial.countdown ?? false,
           recurrenceLog: partial.recurrenceLog ?? [],
+          hidePrivate: partial.hidePrivate ?? false,
           trackingEnabled: partial.trackingEnabled ?? false,
           slots: partial.slots ?? [],
           completionLog: partial.completionLog ?? {},
@@ -379,6 +380,7 @@ export const useStore = create<Store>()(
               archived: false,
               createdAt: new Date().toISOString(),
               log: {},
+              hidePrivate: h.hidePrivate ?? false,
             },
           ],
         })),
@@ -422,11 +424,17 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'tickflow-store-v1',
-      version: 4,
+      version: 5,
       // migrate older persisted shapes (single reminder / string repeat) forward
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>
         if (!state) return state as never
+        if (version < 5) {
+          const tasks = (state.tasks as Record<string, unknown>[] | undefined) ?? []
+          state.tasks = tasks.map((t) => ({ hidePrivate: false, ...t }))
+          const habits = (state.habits as Record<string, unknown>[] | undefined) ?? []
+          state.habits = habits.map((h) => ({ hidePrivate: false, ...h }))
+        }
         if (version < 4) {
           const tasks = (state.tasks as Record<string, unknown>[] | undefined) ?? []
           state.tasks = tasks.map((t) => ({ kind: 'task', ...t }))

@@ -15,6 +15,8 @@ const TEST_ID = 2147483646
 const MAX_SCHEDULED = 60 // keep well under Android's alarm limits
 const CHANNEL_ID = 'reminders'
 const SMALL_ICON = 'ic_stat_notify'
+const PRIVATE_TITLE = 'TickFlow'
+const PRIVATE_BODY = 'You have a new reminder'
 
 let channelReady = false
 /** Create a high-importance channel so reminders show as heads-up + sound. */
@@ -82,8 +84,8 @@ function buildNotifications(tasks: Task[], habits: Habit[]): LocalNotificationSc
       if (Number.isNaN(ts) || ts <= now + 1000) continue
       out.push({
         id: hashId(`task:${t.id}:${r}`),
-        title: t.title || 'Task',
-        body: t.dueDate ? `Due ${t.dueDate.slice(0, 10)}` : 'Reminder',
+        title: t.hidePrivate ? PRIVATE_TITLE : t.title || 'Task',
+        body: t.hidePrivate ? PRIVATE_BODY : t.dueDate ? `Due ${t.dueDate.slice(0, 10)}` : 'Reminder',
         schedule: { at: new Date(ts), allowWhileIdle: true },
       })
     }
@@ -94,8 +96,8 @@ function buildNotifications(tasks: Task[], habits: Habit[]): LocalNotificationSc
         if (!hm) continue
         out.push({
           id: hashId(`slot:${t.id}:${slot.id}`),
-          title: t.title || 'Task',
-          body: `${slot.label || 'Reminder'} · ${slot.time}`,
+          title: t.hidePrivate ? PRIVATE_TITLE : t.title || 'Task',
+          body: t.hidePrivate ? PRIVATE_BODY : `${slot.label || 'Reminder'} · ${slot.time}`,
           schedule: { on: { hour: hm.hour, minute: hm.minute }, allowWhileIdle: true },
         })
       }
@@ -106,8 +108,8 @@ function buildNotifications(tasks: Task[], habits: Habit[]): LocalNotificationSc
     if (h.archived || !h.reminderTime) continue
     const hm = parseHM(h.reminderTime)
     if (!hm) continue
-    const title = `${h.emoji || '🎯'} ${h.name}`
-    const body = `Time for your habit · goal ${h.goal} ${h.unit}`.trim()
+    const title = h.hidePrivate ? PRIVATE_TITLE : `${h.emoji || '🎯'} ${h.name}`
+    const body = h.hidePrivate ? PRIVATE_BODY : `Time for your habit · goal ${h.goal} ${h.unit}`.trim()
     if (h.freq.type === 'daily' && h.freq.days.length > 0) {
       // specific weekdays -> one weekly schedule each (Capacitor weekday: 1=Sun..7=Sat)
       for (const wd of h.freq.days) {

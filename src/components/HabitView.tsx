@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Minus, Trash2, Flame, Check } from 'lucide-react'
+import { Plus, Minus, Trash2, Flame, Check, EyeOff, Eye } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { cx, HABIT_EMOJIS, LIST_COLORS } from '../lib/utils'
 import { todayISO, format, addDays } from '../lib/date'
@@ -94,7 +94,7 @@ export default function HabitView() {
 }
 
 function HabitCard({ habit: h }: { habit: Habit }) {
-  const { incrementHabit, deleteHabit } = useStore()
+  const { incrementHabit, deleteHabit, updateHabit } = useStore()
   const [tab, setTab] = useState<'recent' | 'month'>('recent')
   const today = todayISO()
   const todayVal = h.log[today] ?? 0
@@ -121,6 +121,13 @@ function HabitCard({ habit: h }: { habit: Habit }) {
           </span>
           <button className="step-btn" onClick={() => incrementHabit(h.id, today, 1)}>
             <Plus size={16} />
+          </button>
+          <button
+            className={cx('icon-btn', h.hidePrivate && 'on')}
+            onClick={() => updateHabit(h.id, { hidePrivate: !h.hidePrivate })}
+            title={h.hidePrivate ? 'Reminder details hidden in notifications' : 'Show reminder details in notifications'}
+          >
+            {h.hidePrivate ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
           <button className="icon-btn" onClick={() => deleteHabit(h.id)} title="Delete habit">
             <Trash2 size={15} />
@@ -170,6 +177,7 @@ function HabitModal({ onClose }: { onClose: () => void }) {
   const [days, setDays] = useState<number[]>([])
   const [timesPerWeek, setTimesPerWeek] = useState(3)
   const [reminderTime, setReminderTime] = useState('')
+  const [hidePrivate, setHidePrivate] = useState(false)
 
   const toggleDay = (d: number) => setDays((arr) => (arr.includes(d) ? arr.filter((x) => x !== d) : [...arr, d]))
 
@@ -183,6 +191,7 @@ function HabitModal({ onClose }: { onClose: () => void }) {
       unit,
       freq: { type: freqType, days, timesPerWeek },
       reminderTime: reminderTime || null,
+      hidePrivate,
     })
     onClose()
   }
@@ -248,6 +257,10 @@ function HabitModal({ onClose }: { onClose: () => void }) {
         <label className="form-label">Reminder (optional)</label>
         <input className="input" type="time" value={reminderTime} onChange={(e) => setReminderTime(e.target.value)} />
       </div>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
+        <input type="checkbox" checked={hidePrivate} onChange={(e) => setHidePrivate(e.target.checked)} />
+        Hide details in notifications (show only “New reminder”)
+      </label>
       <div>
         <label className="form-label">Icon</label>
         <div className="emoji-row">
