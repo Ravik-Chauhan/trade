@@ -102,18 +102,27 @@ export async function requestNativePermission(): Promise<boolean> {
 function buildNotifications(tasks: Task[], habits: Habit[]): LocalNotificationSchema[] {
   const out: LocalNotificationSchema[] = []
   const now = Date.now()
+  const HOUR = 3600_000
+  const NAG_WINDOW = 24 * HOUR // keep re-reminding for up to a day after the time
 
   for (const t of tasks) {
     if (t.completed) continue
-    // explicit one-off reminders (future only)
+    // Explicit reminders. Android 14+ lets users dismiss "ongoing" notifications,
+    // so we make the reminder re-fire hourly until the task is completed (which
+    // removes it on the next resync) — it reappears even after "Clear all".
     for (const r of t.reminders) {
       const ts = Date.parse(r)
-      if (Number.isNaN(ts) || ts <= now + 1000) continue
+      if (Number.isNaN(ts) || ts < now - NAG_WINDOW) continue
+      // first fire at the reminder time; if already past, the next hourly slot
+      // after now (slot is anchored to ts so a resync recomputes the same time
+      // and doesn't re-pop it immediately)
+      let fireAt = ts
+      if (fireAt <= now + 1000) fireAt = ts + (Math.floor((now - ts) / HOUR) + 1) * HOUR
       out.push({
         id: hashId(`task:${t.id}:${r}`),
         title: t.hidePrivate ? PRIVATE_TITLE : t.title || 'Task',
         body: t.hidePrivate ? PRIVATE_BODY : t.dueDate ? `Due ${t.dueDate.slice(0, 10)}` : 'Reminder',
-        schedule: { at: new Date(ts), allowWhileIdle: true },
+        schedule: { at: new Date(fireAt), repeats: true, every: 'hour', count: 24, allowWhileIdle: true },
         extra: { kind: 'task', id: t.id } satisfies ReminderExtra,
       })
     }
