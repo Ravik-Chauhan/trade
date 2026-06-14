@@ -6,6 +6,8 @@ import { Capacitor } from '@capacitor/core'
 import { LocalNotifications } from '@capacitor/local-notifications'
 import type { LocalNotificationSchema } from '@capacitor/local-notifications'
 import type { Task, Habit } from '../types'
+import { useStore } from '../store/useStore'
+import { todayISO } from './date'
 
 export type NativePerm = 'granted' | 'denied' | 'prompt'
 
@@ -17,6 +19,31 @@ const CHANNEL_ID = 'reminders'
 const SMALL_ICON = 'ic_stat_notify'
 const PRIVATE_TITLE = 'TickFlow'
 const PRIVATE_BODY = 'You have a new reminder'
+const ACTION_TYPE = 'REMINDER'
+
+type ReminderExtra = { kind: 'task' | 'slot' | 'habit'; id: string; slotId?: string }
+
+let actionsReady = false
+/** Register the Complete / Skip action buttons shown on reminder notifications. */
+async function ensureActionTypes(): Promise<void> {
+  if (!isNative() || actionsReady) return
+  try {
+    await LocalNotifications.registerActionTypes({
+      types: [
+        {
+          id: ACTION_TYPE,
+          actions: [
+            { id: 'complete', title: '✓ Complete' },
+            { id: 'skip', title: 'Skip' },
+          ],
+        },
+      ],
+    })
+    actionsReady = true
+  } catch {
+    /* best-effort */
+  }
+}
 
 let channelReady = false
 /** Create a high-importance channel so reminders show as heads-up + sound. */
@@ -87,6 +114,7 @@ function buildNotifications(tasks: Task[], habits: Habit[]): LocalNotificationSc
         title: t.hidePrivate ? PRIVATE_TITLE : t.title || 'Task',
         body: t.hidePrivate ? PRIVATE_BODY : t.dueDate ? `Due ${t.dueDate.slice(0, 10)}` : 'Reminder',
         schedule: { at: new Date(ts), allowWhileIdle: true },
+        extra: { kind: 'task', id: t.id } satisfies ReminderExtra,
       })
     }
     // tracked-task slots -> a daily reminder at each slot time
@@ -99,6 +127,7 @@ function buildNotifications(tasks: Task[], habits: Habit[]): LocalNotificationSc
           title: t.hidePrivate ? PRIVATE_TITLE : t.title || 'Task',
           body: t.hidePrivate ? PRIVATE_BODY : `${slot.label || 'Reminder'} · ${slot.time}`,
           schedule: { on: { hour: hm.hour, minute: hm.minute }, allowWhileIdle: true },
+          extra: { kind: 'slot', id: t.id, slotId: slot.id } satisfies ReminderExtra,
         })
       }
     }
@@ -118,6 +147,7 @@ function buildNotifications(tasks: Task[], habits: Habit[]): LocalNotificationSc
           title,
           body,
           schedule: { on: { weekday: wd + 1, hour: hm.hour, minute: hm.minute }, allowWhileIdle: true },
+          extra: { kind: 'habit', id: h.id } satisfies ReminderExtra,
         })
       }
     } else {
@@ -126,11 +156,21 @@ function buildNotifications(tasks: Task[], habits: Habit[]): LocalNotificationSc
         title,
         body,
         schedule: { on: { hour: hm.hour, minute: hm.minute }, allowWhileIdle: true },
+        extra: { kind: 'habit', id: h.id } satisfies ReminderExtra,
       })
     }
   }
 
-  return out.slice(0, MAX_SCHEDULED).map((n) => ({ ...n, channelId: CHANNEL_ID, smallIcon: SMALL_ICON }))
+  // sticky + actionable: ongoing (can't be swiped / survives "clear all") and
+  // autoCancel off, so the reminder stays until Complete/Skip is tapped.
+  return out.slice(0, MAX_SCHEDULED).map((n) => ({
+    ...n,
+    channelId: CHANNEL_ID,
+    smallIcon: SMALL_ICON,
+    actionTypeId: ACTION_TYPE,
+    ongoing: true,
+    autoCancel: false,
+  }))
 }
 
 /** Cancel everything we previously scheduled and reschedule from current state. */
@@ -140,6 +180,7 @@ export async function syncNativeReminders(tasks: Task[], habits: Habit[]): Promi
     const perm = await LocalNotifications.checkPermissions()
     if (perm.display !== 'granted') return
     await ensureChannel()
+    await ensureActionTypes()
     const pending = await LocalNotifications.getPending()
     const toCancel = pending.notifications.filter((n) => n.id !== TEST_ID)
     if (toCancel.length) await LocalNotifications.cancel({ notifications: toCancel.map((n) => ({ id: n.id })) })
@@ -154,6 +195,43 @@ export async function syncNativeReminders(tasks: Task[], habits: Habit[]): Promi
  * Fire an immediate native notification so the user can confirm it works.
  * Returns an error string on failure (e.g. permission off), or null on success.
  */
+/** Apply a Complete/Skip action tapped on a reminder notification. */
+function applyAction(actionId: string, extra: ReminderExtra | undefined): void {
+  if (!extra?.id) return
+  const s = useStore.getState()
+  const today = todayISO()
+  if (actionId === 'complete') {
+    if (extra.kind === 'task') s.toggleTask(extra.id)
+    else if (extra.kind === 'slot' && extra.slotId) s.toggleSlot(extra.id, today, extra.slotId)
+    else if (extra.kind === 'habit') s.markHabitDone(extra.id, today)
+  } else if (actionId === 'skip') {
+    if (extra.kind === 'task') s.skipTask(extra.id)
+    // slot/habit "skip" just dismisses the notification — no data change
+  }
+}
+
+/**
+ * Listen for taps on the Complete/Skip buttons. Applies the action, dismisses
+ * that notification, and reschedules. Returns a cleanup function.
+ */
+export function initNotificationActions(): () => void {
+  if (!isNative()) return () => {}
+  void ensureActionTypes()
+  const handle = LocalNotifications.addListener('localNotificationActionPerformed', async (event) => {
+    const actionId = event.actionId
+    if (actionId !== 'complete' && actionId !== 'skip') return // 'tap' just opens the app
+    applyAction(actionId, event.notification.extra as ReminderExtra | undefined)
+    try {
+      await LocalNotifications.cancel({ notifications: [{ id: event.notification.id }] })
+    } catch {
+      /* ignore */
+    }
+    const s = useStore.getState()
+    void syncNativeReminders(s.tasks, s.habits)
+  })
+  return () => void handle.then((h) => h.remove())
+}
+
 export async function sendNativeTest(): Promise<string | null> {
   if (!isNative()) return 'not a native app'
   try {

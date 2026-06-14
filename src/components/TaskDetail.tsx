@@ -13,6 +13,7 @@ import {
   Star,
   Save,
   EyeOff,
+  SkipForward,
   List as ListIcon,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
@@ -53,7 +54,7 @@ export default function TaskDetail() {
   const task = useStore((s) => s.tasks.find((t) => t.id === selectedTaskId))
   const allTags = useStore((s) => s.tags)
   const lists = useStore((s) => s.lists)
-  const { updateTask, deleteTask, toggleTask, addTag } = useStore()
+  const { updateTask, deleteTask, toggleTask, skipTask, addTag } = useStore()
   const pushToast = useToasts((s) => s.push)
 
   // local draft — all field edits go here and only commit on Save
@@ -131,6 +132,15 @@ export default function TaskDetail() {
           {isNote ? 'Note' : task.completed ? 'Completed' : 'Task'}
         </span>
         <div style={{ flex: 1 }} />
+        {!isNote && task.recurrence.rule !== 'none' && task.dueDate && (
+          <button
+            className="icon-btn"
+            onClick={() => skipTask(task.id)}
+            title="Skip to next occurrence"
+          >
+            <SkipForward size={16} />
+          </button>
+        )}
         <button
           className={cx('icon-btn', task.pinned && 'on')}
           style={{ color: task.pinned ? 'var(--amber)' : undefined }}

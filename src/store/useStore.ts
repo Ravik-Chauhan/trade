@@ -23,6 +23,7 @@ interface Store extends AppState {
   addTask: (partial: Partial<Task> & { title: string; listId: string }) => string
   updateTask: (id: string, patch: Partial<Task>) => void
   toggleTask: (id: string) => void
+  skipTask: (id: string) => void
   deleteTask: (id: string) => void
   duplicateTask: (id: string) => void
   moveTask: (id: string, listId: string, columnId?: string | null) => void
@@ -57,6 +58,7 @@ interface Store extends AppState {
   deleteHabit: (id: string) => void
   toggleHabitDay: (id: string, date: string) => void
   incrementHabit: (id: string, date: string, delta: number) => void
+  markHabitDone: (id: string, date: string) => void
   // pomodoro
   logPomodoro: (s: Omit<PomodoroSession, 'id'>) => void
   // settings & data
@@ -159,6 +161,31 @@ export const useStore = create<Store>()(
       },
 
       deleteTask: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
+
+      // Skip a recurring task's current occurrence: roll the due date forward
+      // WITHOUT logging a completion. Ends the series like completion when it
+      // runs out. No-op for non-recurring tasks.
+      skipTask: (id) => {
+        const task = get().tasks.find((t) => t.id === id)
+        if (!task || task.recurrence.rule === 'none' || !task.dueDate) return
+        const { date, recurrence } = advanceRecurrence(task.dueDate, task.recurrence)
+        set((s) => ({
+          tasks: s.tasks.map((t) =>
+            t.id === id
+              ? date
+                ? { ...t, dueDate: date, recurrence, subtasks: t.subtasks.map((st) => ({ ...st, done: false })) }
+                : { ...t, completed: true, completedAt: new Date().toISOString() }
+              : t
+          ),
+        }))
+      },
+
+      // Mark a habit as fully done for a given day (used by notification action).
+      markHabitDone: (id, date) =>
+        set((s) => ({
+          habits: s.habits.map((h) => (h.id === id ? { ...h, log: { ...h.log, [date]: h.goal } } : h)),
+        })),
+
 
       duplicateTask: (id) => {
         const t = get().tasks.find((x) => x.id === id)

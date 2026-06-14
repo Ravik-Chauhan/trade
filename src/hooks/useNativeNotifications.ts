@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { App as CapApp } from '@capacitor/app'
 import { useStore } from '../store/useStore'
-import { isNative, syncNativeReminders } from '../lib/nativeNotifications'
+import { isNative, syncNativeReminders, initNotificationActions } from '../lib/nativeNotifications'
 
 /**
  * On Android, keep device-scheduled reminders in sync with the store so they
@@ -24,6 +24,7 @@ export function useNativeNotifications() {
     }
 
     sync() // initial
+    const removeActions = initNotificationActions()
 
     let prevTasks = useStore.getState().tasks
     let prevHabits = useStore.getState().habits
@@ -40,6 +41,7 @@ export function useNativeNotifications() {
     return () => {
       if (timer) clearTimeout(timer)
       unsub()
+      removeActions()
       void resumeHandle.then((h) => h.remove())
     }
   }, [])
