@@ -86,11 +86,15 @@ export default function SettingsView() {
     }
   }
 
-  const sendTest = () => {
+  const sendTest = async () => {
     chime()
-    if (native) void sendNativeTest()
-    else showNotification('✅ Test reminder', 'This is what a reminder looks like.')
     pushToast({ title: 'Test reminder', body: 'This is what a reminder looks like.', emoji: '✅' })
+    if (native) {
+      const err = await sendNativeTest()
+      if (err) pushToast({ title: 'Notification failed', body: `Couldn't post to the tray — ${err}.`, emoji: '⚠️' })
+    } else {
+      showNotification('✅ Test reminder', 'This is what a reminder looks like.')
+    }
   }
 
   const exportData = () => {

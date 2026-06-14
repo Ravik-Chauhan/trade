@@ -13,6 +13,28 @@ export const isNative = (): boolean => Capacitor.isNativePlatform()
 
 const TEST_ID = 2147483646
 const MAX_SCHEDULED = 60 // keep well under Android's alarm limits
+const CHANNEL_ID = 'reminders'
+const SMALL_ICON = 'ic_stat_notify'
+
+let channelReady = false
+/** Create a high-importance channel so reminders show as heads-up + sound. */
+async function ensureChannel(): Promise<void> {
+  if (!isNative() || channelReady) return
+  try {
+    await LocalNotifications.createChannel({
+      id: CHANNEL_ID,
+      name: 'Reminders',
+      description: 'Task and habit reminders',
+      importance: 5, // MAX -> heads-up
+      visibility: 1, // public on lock screen
+      vibration: true,
+      lights: true,
+    })
+    channelReady = true
+  } catch {
+    /* channels are Android-only / best-effort */
+  }
+}
 
 /** Stable positive 31-bit id derived from a reminder key. */
 function hashId(key: string): number {
@@ -106,7 +128,7 @@ function buildNotifications(tasks: Task[], habits: Habit[]): LocalNotificationSc
     }
   }
 
-  return out.slice(0, MAX_SCHEDULED)
+  return out.slice(0, MAX_SCHEDULED).map((n) => ({ ...n, channelId: CHANNEL_ID, smallIcon: SMALL_ICON }))
 }
 
 /** Cancel everything we previously scheduled and reschedule from current state. */
@@ -115,6 +137,7 @@ export async function syncNativeReminders(tasks: Task[], habits: Habit[]): Promi
   try {
     const perm = await LocalNotifications.checkPermissions()
     if (perm.display !== 'granted') return
+    await ensureChannel()
     const pending = await LocalNotifications.getPending()
     const toCancel = pending.notifications.filter((n) => n.id !== TEST_ID)
     if (toCancel.length) await LocalNotifications.cancel({ notifications: toCancel.map((n) => ({ id: n.id })) })
@@ -125,21 +148,30 @@ export async function syncNativeReminders(tasks: Task[], habits: Habit[]): Promi
   }
 }
 
-/** Fire a near-immediate native notification so the user can confirm it works. */
-export async function sendNativeTest(): Promise<void> {
-  if (!isNative()) return
+/**
+ * Fire an immediate native notification so the user can confirm it works.
+ * Returns an error string on failure (e.g. permission off), or null on success.
+ */
+export async function sendNativeTest(): Promise<string | null> {
+  if (!isNative()) return 'not a native app'
   try {
+    const perm = await LocalNotifications.checkPermissions()
+    if (perm.display !== 'granted') return 'notifications are not permitted'
+    await ensureChannel()
+    // no `schedule` -> shown immediately
     await LocalNotifications.schedule({
       notifications: [
         {
           id: TEST_ID,
           title: '✅ Test reminder',
           body: 'This is what a reminder looks like.',
-          schedule: { at: new Date(Date.now() + 1200), allowWhileIdle: true },
+          channelId: CHANNEL_ID,
+          smallIcon: SMALL_ICON,
         },
       ],
     })
-  } catch {
-    /* ignore */
+    return null
+  } catch (e) {
+    return e instanceof Error ? e.message : 'could not post notification'
   }
 }

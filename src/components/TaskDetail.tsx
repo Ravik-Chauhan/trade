@@ -11,12 +11,14 @@ import {
   Plus,
   Check,
   Star,
+  Save,
   List as ListIcon,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useUI } from '../store/useUI'
+import { useToasts } from '../store/useToasts'
 import { Hourglass, X as XIcon, CalendarCheck, Flame, StickyNote, CheckSquare } from 'lucide-react'
-import { cx, PRIORITY_META } from '../lib/utils'
+import { cx, uid, PRIORITY_META } from '../lib/utils'
 import type { Priority, RepeatRule, Recurrence, Task } from '../types'
 import { NO_RECURRENCE } from '../types'
 import TaskTrackingCalendar from './TaskTrackingCalendar'
@@ -34,58 +36,80 @@ const REPEAT_OPTIONS: { value: RepeatRule; label: string }[] = [
   { value: 'custom', label: 'Custom…' },
 ]
 
+// Definition fields that the editor buffers locally until the user hits Save.
+// Excludes live/action fields (completed, completionLog, pinned, …) so saving
+// never clobbers a completion logged while editing.
+const BUFFERED: (keyof Task)[] = [
+  'title', 'notes', 'kind', 'dueDate', 'hasTime', 'startDate', 'listId', 'columnId',
+  'priority', 'tags', 'recurrence', 'reminders', 'countdown', 'subtasks',
+]
+const pick = (t: Task): Partial<Task> =>
+  BUFFERED.reduce((o, k) => ({ ...o, [k]: t[k] }), {} as Partial<Task>)
+
 export default function TaskDetail() {
   const selectedTaskId = useUI((s) => s.selectedTaskId)
   const selectTask = useUI((s) => s.selectTask)
   const task = useStore((s) => s.tasks.find((t) => t.id === selectedTaskId))
   const allTags = useStore((s) => s.tags)
   const lists = useStore((s) => s.lists)
-  const {
-    updateTask,
-    deleteTask,
-    toggleTask,
-    addSubtask,
-    toggleSubtask,
-    updateSubtask,
-    deleteSubtask,
-    addTag,
-    moveTask,
-  } = useStore()
+  const { updateTask, deleteTask, toggleTask, addTag } = useStore()
+  const pushToast = useToasts((s) => s.push)
 
+  // local draft — all field edits go here and only commit on Save
+  const [draft, setDraft] = useState<Task | null>(null)
   const [newSub, setNewSub] = useState('')
   const [tagInput, setTagInput] = useState('')
 
   useEffect(() => {
+    const t = useStore.getState().tasks.find((x) => x.id === selectedTaskId)
+    setDraft(t ? (JSON.parse(JSON.stringify(t)) as Task) : null)
     setNewSub('')
     setTagInput('')
   }, [selectedTaskId])
 
-  if (!task) return null
+  if (!task || !draft) return null
 
-  const isNote = task.kind === 'note'
-  const close = () => selectTask(null)
-  const dateValue = task.dueDate ? task.dueDate.slice(0, 10) : ''
-  const timeValue = task.hasTime && task.dueDate ? task.dueDate.slice(11, 16) : ''
+  const patch = (p: Partial<Task>) => setDraft((d) => (d ? { ...d, ...p } : d))
+  const dirty = JSON.stringify(pick(draft)) !== JSON.stringify(pick(task))
+
+  const isNote = draft.kind === 'note'
+  const close = () => {
+    if (dirty && !window.confirm('Discard unsaved changes?')) return
+    selectTask(null)
+  }
+  const save = () => {
+    updateTask(task.id, pick(draft))
+    pushToast({ title: 'Saved', body: draft.title.trim() || 'Item updated', emoji: '✅' })
+  }
+
+  const dateValue = draft.dueDate ? draft.dueDate.slice(0, 10) : ''
+  const timeValue = draft.hasTime && draft.dueDate ? draft.dueDate.slice(11, 16) : ''
 
   const setDate = (date: string, time: string) => {
     if (!date) {
-      updateTask(task.id, { dueDate: null, hasTime: false })
+      patch({ dueDate: null, hasTime: false })
       return
     }
-    if (time) updateTask(task.id, { dueDate: `${date}T${time}:00`, hasTime: true })
-    else updateTask(task.id, { dueDate: date, hasTime: false })
+    if (time) patch({ dueDate: `${date}T${time}:00`, hasTime: true })
+    else patch({ dueDate: date, hasTime: false })
   }
 
+  // subtasks operate on the draft
+  const addSub = (title: string) => patch({ subtasks: [...draft.subtasks, { id: uid('s'), title: title.trim(), done: false }] })
+  const toggleSub = (id: string) => patch({ subtasks: draft.subtasks.map((s) => (s.id === id ? { ...s, done: !s.done } : s)) })
+  const updateSub = (id: string, title: string) => patch({ subtasks: draft.subtasks.map((s) => (s.id === id ? { ...s, title } : s)) })
+  const deleteSub = (id: string) => patch({ subtasks: draft.subtasks.filter((s) => s.id !== id) })
+
   const toggleTag = (name: string) => {
-    const has = task.tags.includes(name)
-    updateTask(task.id, { tags: has ? task.tags.filter((t) => t !== name) : [...task.tags, name] })
+    const has = draft.tags.includes(name)
+    patch({ tags: has ? draft.tags.filter((t) => t !== name) : [...draft.tags, name] })
   }
 
   const commitTag = () => {
     const clean = tagInput.trim().replace(/^#/, '')
     if (!clean) return
     addTag(clean)
-    if (!task.tags.includes(clean)) updateTask(task.id, { tags: [...task.tags, clean] })
+    if (!draft.tags.includes(clean)) patch({ tags: [...draft.tags, clean] })
     setTagInput('')
   }
 
@@ -123,9 +147,9 @@ export default function TaskDetail() {
         <div className="detail-title-row">
           <textarea
             className="detail-title"
-            value={task.title}
+            value={draft.title}
             rows={1}
-            onChange={(e) => updateTask(task.id, { title: e.target.value })}
+            onChange={(e) => patch({ title: e.target.value })}
             placeholder={isNote ? 'Note title' : 'Task name'}
           />
         </div>
@@ -133,13 +157,13 @@ export default function TaskDetail() {
         <div className="addbar-toggle" style={{ marginTop: 12 }} role="group" aria-label="Item type">
           <button
             className={cx(!isNote && 'active')}
-            onClick={() => updateTask(task.id, { kind: 'task' })}
+            onClick={() => patch({ kind: 'task' })}
           >
             <CheckSquare size={14} /> Task
           </button>
           <button
             className={cx(isNote && 'active')}
-            onClick={() => updateTask(task.id, { kind: 'note' })}
+            onClick={() => patch({ kind: 'note' })}
           >
             <StickyNote size={14} /> Note
           </button>
@@ -150,8 +174,8 @@ export default function TaskDetail() {
           <textarea
             className="notes-area"
             style={isNote ? { minHeight: 240 } : undefined}
-            value={task.notes}
-            onChange={(e) => updateTask(task.id, { notes: e.target.value })}
+            value={draft.notes}
+            onChange={(e) => patch({ notes: e.target.value })}
             placeholder={isNote ? 'Write your note…' : 'Add notes, links, or details…'}
           />
         </div>
@@ -179,10 +203,10 @@ export default function TaskDetail() {
             <div className="field">
               <label><ListIcon size={15} /> List</label>
               <select
-                value={task.listId}
+                value={draft.listId}
                 onChange={(e) => {
                   const l = lists.find((x) => x.id === e.target.value)
-                  moveTask(task.id, e.target.value, l?.kanban ? l.columns[0]?.id ?? null : null)
+                  patch({ listId: e.target.value, columnId: l?.kanban ? l.columns[0]?.id ?? null : null })
                 }}
               >
                 {lists.map((l) => (
@@ -193,26 +217,26 @@ export default function TaskDetail() {
           </div>
 
           <RecurrenceEditor
-            value={task.recurrence}
-            disabled={!task.dueDate}
-            onChange={(rec) => updateTask(task.id, { recurrence: rec })}
+            value={draft.recurrence}
+            disabled={!draft.dueDate}
+            onChange={(rec) => patch({ recurrence: rec })}
           />
 
           <div className="field" style={{ marginTop: 8 }}>
             <label><Hourglass size={15} /> Show countdown</label>
             <button
-              className={cx('toggle', task.countdown && 'on')}
-              disabled={!task.dueDate}
-              onClick={() => updateTask(task.id, { countdown: !task.countdown })}
+              className={cx('toggle', draft.countdown && 'on')}
+              disabled={!draft.dueDate}
+              onClick={() => patch({ countdown: !draft.countdown })}
             />
           </div>
 
-          {task.dueDate && <OccurrencePreview task={task} />}
+          {draft.dueDate && <OccurrencePreview task={draft} />}
         </div>
 
         <div className="detail-section">
           <div className="detail-label"><Bell size={12} style={{ verticalAlign: -1 }} /> Reminders</div>
-          {task.reminders.map((r, i) => (
+          {draft.reminders.map((r, i) => (
             <div key={i} className="subtask-row">
               <Bell size={14} style={{ color: 'var(--text-muted)' }} />
               <input
@@ -220,15 +244,15 @@ export default function TaskDetail() {
                 type="datetime-local"
                 value={r.slice(0, 16)}
                 onChange={(e) => {
-                  const next = [...task.reminders]
+                  const next = [...draft.reminders]
                   next[i] = e.target.value
-                  updateTask(task.id, { reminders: next.filter(Boolean) })
+                  patch({ reminders: next.filter(Boolean) })
                 }}
               />
               <button
                 className="icon-btn"
                 style={{ width: 26, height: 26 }}
-                onClick={() => updateTask(task.id, { reminders: task.reminders.filter((_, j) => j !== i) })}
+                onClick={() => patch({ reminders: draft.reminders.filter((_, j) => j !== i) })}
               >
                 <XIcon size={14} />
               </button>
@@ -238,8 +262,8 @@ export default function TaskDetail() {
             className="add-sub"
             style={{ width: '100%' }}
             onClick={() => {
-              const base = task.dueDate ? task.dueDate.slice(0, 10) : new Date().toISOString().slice(0, 10)
-              updateTask(task.id, { reminders: [...task.reminders, `${base}T09:00`] })
+              const base = draft.dueDate ? draft.dueDate.slice(0, 10) : new Date().toISOString().slice(0, 10)
+              patch({ reminders: [...draft.reminders, `${base}T09:00`] })
             }}
           >
             <Plus size={16} /> Add reminder
@@ -253,8 +277,8 @@ export default function TaskDetail() {
             {PRIORITY_META.map((p) => (
               <button
                 key={p.value}
-                className={cx('pill', task.priority === p.value && 'active')}
-                onClick={() => updateTask(task.id, { priority: p.value as Priority })}
+                className={cx('pill', draft.priority === p.value && 'active')}
+                onClick={() => patch({ priority: p.value as Priority })}
               >
                 <Flag size={13} style={{ color: p.color }} fill={p.value ? p.color : 'none'} />
                 {p.label}
@@ -265,19 +289,19 @@ export default function TaskDetail() {
 
         <div className="detail-section">
           <div className="detail-label">
-            Subtasks {task.subtasks.length > 0 && `· ${task.subtasks.filter((s) => s.done).length}/${task.subtasks.length}`}
+            Subtasks {draft.subtasks.length > 0 && `· ${draft.subtasks.filter((s) => s.done).length}/${draft.subtasks.length}`}
           </div>
-          {task.subtasks.map((st) => (
+          {draft.subtasks.map((st) => (
             <div key={st.id} className={cx('subtask-row', st.done && 'done')}>
-              <button className={cx('mini-check', st.done && 'checked')} onClick={() => toggleSubtask(task.id, st.id)}>
+              <button className={cx('mini-check', st.done && 'checked')} onClick={() => toggleSub(st.id)}>
                 {st.done && <Check size={11} strokeWidth={3} />}
               </button>
               <input
                 className="sub-text"
                 value={st.title}
-                onChange={(e) => updateSubtask(task.id, st.id, e.target.value)}
+                onChange={(e) => updateSub(st.id, e.target.value)}
               />
-              <button className="icon-btn" style={{ width: 26, height: 26 }} onClick={() => deleteSubtask(task.id, st.id)}>
+              <button className="icon-btn" style={{ width: 26, height: 26 }} onClick={() => deleteSub(st.id)}>
                 <X size={14} />
               </button>
             </div>
@@ -290,7 +314,7 @@ export default function TaskDetail() {
               onChange={(e) => setNewSub(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && newSub.trim()) {
-                  addSubtask(task.id, newSub)
+                  addSub(newSub)
                   setNewSub('')
                 }
               }}
@@ -305,7 +329,7 @@ export default function TaskDetail() {
             {allTags.map((t) => (
               <button
                 key={t.id}
-                className={cx('pill', task.tags.includes(t.name) && 'active')}
+                className={cx('pill', draft.tags.includes(t.name) && 'active')}
                 onClick={() => toggleTag(t.name)}
               >
                 <span className="dot" style={{ background: t.color }} /> {t.name}
@@ -325,15 +349,17 @@ export default function TaskDetail() {
       </div>
 
       <div className="detail-footer">
-        <span>Created {new Date(task.createdAt).toLocaleDateString()}</span>
         <button
           className="danger-btn"
           onClick={() => {
             deleteTask(task.id)
-            close()
+            selectTask(null)
           }}
         >
           <Trash2 size={15} /> Delete
+        </button>
+        <button className="btn primary" onClick={save} disabled={!dirty}>
+          <Save size={15} /> {dirty ? 'Save' : 'Saved'}
         </button>
       </div>
     </div>
