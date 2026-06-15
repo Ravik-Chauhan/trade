@@ -1,102 +1,108 @@
-# ✅ TickFlow — Premium Task Manager
+# 🏍️ Road Rebels — Moto Combat Racing
 
-A feature-rich, **TickTick Premium-style** task & productivity app built with React, TypeScript and Vite. Plan your day, organize projects on boards, build habits, and focus with a built-in Pomodoro timer — all running entirely in your browser with offline-first local persistence.
+A fast, **original pseudo-3D motorcycle combat racer** in the spirit of the
+classic moto-brawler arcade games of the 90s — race a pack of rivals down
+curving highways, **punch and kick them off their bikes**, dodge traffic, and
+win cash to buy faster machines and climb a career ladder.
 
-![Premium](https://img.shields.io/badge/Tier-Premium-f5a623) ![React](https://img.shields.io/badge/React-18-4772fa) ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6)
+Built with **TypeScript + HTML5 Canvas** (no game engine, no framework) and
+shipped to **Android** via Capacitor as an installable APK.
 
-## ✨ Features
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6) ![Canvas](https://img.shields.io/badge/HTML5-Canvas-e34f26) ![Android](https://img.shields.io/badge/Android-Capacitor-3ddc84)
 
-### Tasks
-- **Quick add** with natural-language parsing — `Submit report tomorrow #work !2`
-  - `today` / `tomorrow` / `next week` → due date
-  - `#tag` → tags
-  - `!1` `!2` `!3` → Low / Medium / High priority
-- Rich task detail panel: notes, due date & time, priority, tags, and **subtasks** with progress bars
-- **Custom recurrence** — daily/weekly/monthly/yearly with **"every N"** intervals, weekdays, plus end conditions (never / after N occurrences / on a date)
-- **Multiple reminders** per task
-- **Countdown** mode showing days-remaining
-- Pin/star important tasks, duplicate, move between lists, right-click context menu
-- Drag-and-drop reordering
+> **About the inspiration:** Road Rebels is an *original* game in the same genre
+> as the classic motorcycle-combat racers. All code, artwork and sound are
+> generated procedurally in this repo — it contains **no assets, names or audio
+> from any commercial game**, and is not affiliated with or endorsed by any
+> rights holder.
 
-### Views
-- 📋 **List view** with sorting (manual, due date, priority, title, created) and **group-by** (list / priority / due date / tag)
-- 🗂️ **Kanban board** — drag cards across custom columns
-- 📅 **Calendar** — **Month / Week / Day / Agenda** views
-- 🎯 **Eisenhower Matrix** — auto-sorted Do / Schedule / Delegate / Eliminate quadrants
+## 🎮 Gameplay
 
-### Smart Lists
-Today · Tomorrow · Next 7 Days · Inbox · High Priority · All Tasks · Completed — with live counts.
-Plus **custom Smart Lists** — saved filters combining list, tag, priority, due-date and completed criteria.
+- **Pseudo-3D road engine** — segment-projected curves, hills, rumble strips,
+  lane lines, fog and a dusk skyline, rendered entirely on a 2D canvas.
+- **On-bike combat** — pull alongside a rival and hit the punch button on their
+  side to drain their health; knock them down for a **$250 bounty**. Grab a
+  **pipe** off the road for harder hits.
+- **Rival AI** — opponents pace you, swerve around traffic, close in to attack,
+  stagger when hit, and wipe out when their health is gone.
+- **Hazards** — passing traffic to weave through, grass that slows you, and a
+  wreck system: crash too many times and you get **BUSTED**.
+- **Career mode** — six escalating tracks from *Coast Run* to the *Grand Final*,
+  prize money, a **garage** with five buyable bikes (speed / accel / grip /
+  toughness trade-offs), and saved best times.
+- **Controls** — touch (steer ◀▶, gas ▲, brake ▼, punch ✊×2) or keyboard
+  (arrows/WASD, Z/X to hit, P to pause). Optional **tilt steering**.
+- **Fully offline**, no accounts, no ads. Progress saved in local storage.
 
-### Lists, Folders & Tags
-- Custom lists with emoji + color, optionally as Kanban boards
-- **Folders / list groups** with collapse
-- Color-coded tags with dedicated filtered views
+## 🚀 Run it
 
-### Premium Productivity
-- 🎯 **Habit tracker** — daily goals & units, **weekday or X-times-per-week frequency**, habit reminders, streaks 🔥 and a 40-day heatmap
-- ⏱️ **Focus timer** — Pomodoro cycles (focus / short / long break) **and a count-up Stopwatch**, task linking, session logging, audible chime, and **ambient white / pink / brown noise**
-- 📊 **Statistics** — completion rate, overdue count, focus minutes, and a 7-day completion chart
-
-### Polish
-- 🌗 Light / Dark / System theme with customizable accent color
-- 💾 Local persistence (no account needed) + JSON **export / import** backups
-- 📱 Responsive layout with mobile sidebar
-
-## 🚀 Getting Started
-
-**Option A — Zero install:** open `TickFlow.html` directly in any modern browser
-(double-click it). It's the whole app inlined into one file — no Node, no server.
-Data is saved in that browser's local storage. Regenerate it with `npm run build:single`.
-
-**Option B — Dev server (live code, hot reload):** requires Node.js 18+.
+Requires Node.js 18+.
 
 ```bash
 npm install
-npm run dev            # start dev server (http://localhost:5173)
-npm run build          # type-check + production build
-npm run preview        # preview the production build
-npm run build:single   # inline everything into a portable TickFlow.html
-npm test               # run the unit/component test suite (Vitest)
-npm run test:coverage  # run tests with a coverage report
+npm run dev       # play in the browser at http://localhost:5173
+npm run build     # type-check + production build (outputs to dist/)
+npm run preview   # preview the production build
+npm test          # headless game-loop smoke test + unit tests (Vitest)
 ```
 
-## ✅ Testing
+Open in a desktop browser and use the arrow keys, or open on a phone for touch
+controls. Landscape is recommended.
 
-The project ships with a **Vitest + Testing Library** suite (69 tests) covering the core logic and key UI:
+## 📱 Android APK
 
-- `src/lib/date.test.ts` — recurrence engine (intervals & end conditions), relative-date helpers, formatting
-- `src/lib/selectors.test.ts` — filter/selection matching, search, sorting, grouping, Eisenhower quadrants
-- `src/store/useStore.test.ts` — task/list/folder/filter/habit reducers, recurring-task roll-forward, import/export
-- `src/components/*.test.tsx` — quick-add parsing, task interactions, and an app render/navigation smoke test
+The game builds into a real, installable Android APK via Capacitor. The easiest
+route needs **no local Android tooling** — push to the game branch (or trigger
+the workflow) and download the artifact from GitHub Actions. Full instructions
+are in **[ANDROID.md](./ANDROID.md)**.
 
-## 🧱 Tech Stack
+```bash
+npm run android:apk   # local build → android/app/build/outputs/apk/debug/app-debug.apk
+```
 
-| Concern | Choice |
+## 🧱 How it works
+
+| Concern | Approach |
 | --- | --- |
-| Framework | React 18 + TypeScript |
-| Build tool | Vite 5 |
-| State | Zustand (with `persist` to `localStorage`) |
-| Dates | date-fns |
-| Icons | lucide-react |
-| Styling | Hand-written CSS with CSS variables (theming) |
+| Rendering | HTML5 Canvas 2D, classic segment-projection pseudo-3D road |
+| Art | Procedurally drawn to offscreen canvases at load (bikes, riders, cars, scenery) |
+| Audio | Web Audio API — RPM-tracking engine drone + synthesised SFX |
+| Game loop | `requestAnimationFrame` with a fixed-clamped delta |
+| Persistence | `localStorage` (cash, owned bikes, career progress, best times) |
+| Android shell | Capacitor (status bar, splash, hardware back button, landscape lock) |
+| Build | Vite 5 + TypeScript (strict) |
 
-## 📁 Project Structure
+## 📁 Project structure
 
 ```
 src/
-├── components/      # UI: Sidebar, Header, TaskListView, TaskDetail,
-│                    #     KanbanView, CalendarView, HabitView,
-│                    #     PomodoroView, StatsView, SettingsView, Modal
-├── lib/             # date helpers, selectors, seed data, utils
-├── store/           # Zustand stores (useStore = data, useUI = navigation)
-├── types.ts         # shared domain types
-├── App.tsx          # layout shell + theming
-└── main.tsx         # entry point
+├── game/
+│   ├── game.ts       # state machine: menus, garage, race sim, combat, HUD
+│   ├── road.ts       # pseudo-3D track building + projection + rendering
+│   ├── entities.ts   # rival AI, traffic, weapon pickups
+│   ├── sprites.ts    # procedural sprite generation (no image files)
+│   ├── audio.ts      # Web Audio engine + SFX synthesis
+│   ├── input.ts      # keyboard + touch + tilt input
+│   ├── ui.ts         # canvas button / panel helpers
+│   ├── tracks.ts     # bike + track catalogue
+│   ├── save.ts       # localStorage persistence
+│   ├── config.ts     # engine tunables + palette
+│   ├── util.ts       # math + RNG helpers
+│   ├── types.ts      # shared types
+│   └── game.test.ts  # headless smoke + unit tests
+├── main.ts           # bootstrap: canvas, loop, Capacitor integration
+└── style.css         # fullscreen canvas styling
 ```
 
-## 💡 Notes
-All data lives in your browser's `localStorage` under `tickflow-store-v1`. Use **Settings → Export backup** to save a JSON snapshot, and **Reset to demo data** to start fresh with the sample content.
+## 🎯 How to play
+
+1. **RACE** → pick a track → **RACE!**
+2. Hold **gas** (▲ / Up). Steer with ◀ ▶ (or arrows). Stay on the asphalt.
+3. When a rival is beside you, hit the **punch** button on their side (✊, or
+   Z/X). Knock them down for cash.
+4. Grab a **pipe** on the road for stronger hits.
+5. Finish **1st** to win the prize and unlock the next race. Spend your winnings
+   in the **GARAGE** on a faster bike.
 
 ---
-Built as a demonstration clone — not affiliated with TickTick.
+An original game — not affiliated with, or derived from, any commercial title.

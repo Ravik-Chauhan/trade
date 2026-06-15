@@ -1,12 +1,13 @@
 {
-  "name": "TickFlow",
-  "short_name": "TickFlow",
-  "description": "Plan, focus and achieve — tasks, habits, calendar, kanban and pomodoro.",
+  "name": "Road Rebels",
+  "short_name": "Road Rebels",
+  "description": "Original pseudo-3D motorcycle combat racing — race, brawl and climb the career ladder.",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
-  "background_color": "#16181d",
-  "theme_color": "#4772fa",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0c220f",
+  "theme_color": "#0c220f",
   "icons": [
     {
       "src": "./favicon.svg",

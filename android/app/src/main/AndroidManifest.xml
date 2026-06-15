@@ -13,6 +13,7 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
+            android:screenOrientation="sensorLandscape"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -29,15 +30,7 @@
         </provider>
     </application>
 
-    <!-- Permissions -->
-
+    <!-- The game runs fully offline; the only permission it needs is network
+         access for the initial WebView asset load. -->
     <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- Notifications + exact alarms so scheduled reminders fire on Android 12+
-         even when the app is closed. USE_EXACT_ALARM is auto-granted to
-         alarm/reminder apps, so no runtime toggle is needed. -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 </manifest>

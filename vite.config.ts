@@ -18,12 +18,11 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: './src/test/setup.ts',
     css: false,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      include: ['src/lib/**', 'src/store/**'],
+      include: ['src/game/**'],
     },
   },
 })

@@ -1,30 +1,28 @@
-# TickFlow for Android
+# Road Rebels for Android
 
-The Android app is the same TickFlow web app wrapped in a native shell with
-[Capacitor](https://capacitorjs.com/). Every feature works — tasks, lists,
-folders, tags, smart lists, kanban, calendar, habits, pomodoro, recurrence
-(including the custom weekday/month-day rules), the monthly view, themes — and
-data is stored **on-device**, so no sync server or Wi-Fi is needed.
+Road Rebels is an HTML5 Canvas game wrapped in a native Android shell with
+[Capacitor](https://capacitorjs.com/). It runs **fully offline** — the whole
+game (engine, art and audio) is generated in code and bundled into the app, so
+no network is needed once installed. Progress (cash, bikes, best times) is saved
+**on-device** in local storage.
 
-The big upgrade over the web version: **native notifications**. Task reminders
-and habit times are scheduled on the device's alarm manager, so they fire in
-your notification bar **even when the app is closed**.
+The app is locked to **landscape** and uses on-screen touch controls.
 
 ## Get the APK (no Android Studio needed)
 
-A GitHub Actions workflow builds an installable debug APK for you:
+A GitHub Actions workflow builds an installable, signed debug APK for you:
 
 1. On GitHub, open the repo's **Actions** tab → **Build Android APK**.
 2. Open the most recent successful run (or click **Run workflow** to start one).
-3. Under **Artifacts**, download **`tickflow-debug-apk`** (a zip) and extract
+3. Under **Artifacts**, download **`road-rebels-debug-apk`** (a zip) and extract
    `app-debug.apk`.
 4. Copy it to your phone, tap it, and allow **install from unknown sources**
    when prompted.
-5. Open TickFlow → **Settings → Notifications → Enable**, allow notifications,
-   then **Send test reminder** to confirm it appears in your notification bar.
+5. Launch **Road Rebels** and race.
 
-This is a *debug* build (signed with Android's debug key) — perfect for personal
-use. A Play Store release would need a signing keystore; ask if you want that.
+This is a *debug* build (signed with a committed debug key, so updates install
+over each other) — perfect for personal use. A Play Store release would need
+your own upload keystore.
 
 ## Build it yourself (with Android Studio)
 
@@ -39,7 +37,7 @@ Requires the Android SDK (platform 36, build-tools 36) and JDK 21.
 
 ## Notes
 
-- **Data is local to the app.** The PC sync server is web-only; the app doesn't
-  talk to it. Use **Settings → Export** for backups.
-- App id `com.tickflow.app`, version 1.0. Bump `versionCode`/`versionName` in
-  `android/app/build.gradle` for updates.
+- **Everything is local.** No accounts, no servers, no ads, no tracking.
+- App id `com.tickflow.app` (kept stable from the project scaffold so the
+  committed debug keystore keeps working), label **Road Rebels**, version 1.0.
+  Bump `versionCode`/`versionName` in `android/app/build.gradle` for updates.

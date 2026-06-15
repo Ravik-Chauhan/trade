@@ -11,8 +11,4 @@ vite.config.d.ts
 *.log
 
 # generated single-file build
-TickFlow.html
-
-# local sync server data
-server/data.json
-server/certs/
+RoadRebels.html

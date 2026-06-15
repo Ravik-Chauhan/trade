@@ -1,5 +1,6 @@
-// Minimal service worker: offline-first navigation cache + notification focus.
-const CACHE = 'tickflow-v1'
+// Minimal service worker: offline-first navigation cache so the game is
+// playable without a connection once loaded.
+const CACHE = 'roadrebels-v1'
 
 self.addEventListener('install', (e) => {
   self.skipWaiting()
@@ -21,14 +22,4 @@ self.addEventListener('fetch', (e) => {
     return
   }
   e.respondWith(caches.match(req).then((cached) => cached || fetch(req)))
-})
-
-self.addEventListener('notificationclick', (e) => {
-  e.notification.close()
-  e.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then((list) => {
-      for (const c of list) if ('focus' in c) return c.focus()
-      if (self.clients.openWindow) return self.clients.openWindow('./')
-    })
-  )
 })

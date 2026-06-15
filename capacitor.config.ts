@@ -2,20 +2,16 @@ import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
   appId: 'com.tickflow.app',
-  appName: 'TickFlow',
+  appName: 'Road Rebels',
   webDir: 'dist',
-  backgroundColor: '#f6f7f9',
+  backgroundColor: '#0c220f',
   android: {
-    backgroundColor: '#f6f7f9',
+    backgroundColor: '#0c220f',
   },
   plugins: {
-    LocalNotifications: {
-      smallIcon: 'ic_stat_notify',
-      iconColor: '#4772fa',
-    },
     SplashScreen: {
-      launchShowDuration: 500,
-      backgroundColor: '#4772fa',
+      launchShowDuration: 600,
+      backgroundColor: '#0c220f',
       showSpinner: false,
     },
   },
