@@ -7,6 +7,7 @@ import { LocalNotifications } from '@capacitor/local-notifications'
 import type { LocalNotificationSchema } from '@capacitor/local-notifications'
 import type { Task, Habit } from '../types'
 import { useStore } from '../store/useStore'
+import { useUI } from '../store/useUI'
 import { todayISO } from './date'
 import { getSnoozes, setSnooze, snoozeKeyFor } from './snooze'
 
@@ -103,7 +104,12 @@ export async function requestNativePermission(): Promise<boolean> {
 
 /** Build the set of notifications to schedule from the current tasks + habits. */
 function buildNotifications(tasks: Task[], habits: Habit[]): LocalNotificationSchema[] {
-  const out: LocalNotificationSchema[] = []
+  // `primary` holds each reminder's first/base alarm; `nags` holds the later
+  // 15-min repeats. We schedule all primaries before any nags so that, under the
+  // OS pending-alarm cap, every reminder is guaranteed at least its first alarm
+  // and a busy nag series can never starve another reminder.
+  const primary: LocalNotificationSchema[] = []
+  const nags: LocalNotificationSchema[] = []
   const now = Date.now()
   const todayKey = todayISO()
   const snoozes = getSnoozes()
@@ -119,16 +125,19 @@ function buildNotifications(tasks: Task[], habits: Habit[]): LocalNotificationSc
   // Android 14+ lets users dismiss "ongoing" notifications, so we re-fire each
   // reminder every 15 min (only future slots, anchored to its time so a resync
   // recomputes the same times) — it reappears after "Clear all" until it's acted
-  // on (which drops it on the next resync).
+  // on (which drops it on the next resync). The first future copy is treated as
+  // primary; the rest are nags.
   const addNag = (keyBase: string, firstTs: number, title: string, body: string, extra: ReminderExtra) => {
     // honor a per-reminder snooze: don't re-fire until the snooze expires
     const until = snoozes[snoozeKeyFor(extra.kind, extra.id, extra.slotId)] || 0
     const start = Math.max(firstTs, until)
-    let i = 0
-    for (let ts = start; ts <= start + NAG_WINDOW && i < MAX_PER; ts += INTERVAL) {
+    let pushed = 0
+    for (let ts = start; ts <= start + NAG_WINDOW; ts += INTERVAL) {
       if (ts <= now + 1000) continue
-      out.push({ id: hashId(`${keyBase}:${i}`), title, body, schedule: { at: new Date(ts), allowWhileIdle: true }, extra })
-      i++
+      const note: LocalNotificationSchema = { id: hashId(`${keyBase}:${pushed}`), title, body, schedule: { at: new Date(ts), allowWhileIdle: true }, extra }
+      ;(pushed === 0 ? primary : nags).push(note)
+      pushed++
+      if (pushed >= MAX_PER) break
     }
   }
 
@@ -150,7 +159,7 @@ function buildNotifications(tasks: Task[], habits: Habit[]): LocalNotificationSc
         if (!hm) continue
         const sbody = t.hidePrivate ? PRIVATE_BODY : `${slot.label || 'Reminder'} · ${slot.time}`
         const extra: ReminderExtra = { kind: 'slot', id: t.id, slotId: slot.id }
-        out.push({
+        primary.push({
           id: hashId(`slot:${t.id}:${slot.id}`),
           title,
           body: sbody,
@@ -175,10 +184,10 @@ function buildNotifications(tasks: Task[], habits: Habit[]): LocalNotificationSc
     // daily base alarm(s) so it still fires when the app is never opened
     if (h.freq.type === 'daily' && h.freq.days.length > 0) {
       for (const wd of h.freq.days) {
-        out.push({ id: hashId(`habit:${h.id}:${wd}`), title, body, schedule: { on: { weekday: wd + 1, hour: hm.hour, minute: hm.minute }, allowWhileIdle: true }, extra })
+        primary.push({ id: hashId(`habit:${h.id}:${wd}`), title, body, schedule: { on: { weekday: wd + 1, hour: hm.hour, minute: hm.minute }, allowWhileIdle: true }, extra })
       }
     } else {
-      out.push({ id: hashId(`habit:${h.id}`), title, body, schedule: { on: { hour: hm.hour, minute: hm.minute }, allowWhileIdle: true }, extra })
+      primary.push({ id: hashId(`habit:${h.id}`), title, body, schedule: { on: { hour: hm.hour, minute: hm.minute }, allowWhileIdle: true }, extra })
     }
     // today's 15-min re-arm (until the habit's goal is met today)
     const doneToday = (h.log[todayKey] ?? 0) >= h.goal
@@ -190,7 +199,8 @@ function buildNotifications(tasks: Task[], habits: Habit[]): LocalNotificationSc
 
   // sticky + actionable: ongoing + autoCancel off (best-effort on Android 14+),
   // with Complete / Skip actions; the 15-min re-arm guarantees reappearance.
-  return out.slice(0, MAX_SCHEDULED).map((n) => ({
+  // Primaries first so every reminder keeps its first alarm under the OS cap.
+  return [...primary, ...nags].slice(0, MAX_SCHEDULED).map((n) => ({
     ...n,
     channelId: CHANNEL_ID,
     smallIcon: SMALL_ICON,
@@ -239,6 +249,20 @@ function applyAction(actionId: string, extra: ReminderExtra | undefined): void {
   }
 }
 
+/** Tapping the notification body opens the originating task/habit in the app. */
+function openFromNotification(extra: ReminderExtra | undefined): void {
+  if (!extra?.id) return
+  const ui = useUI.getState()
+  if (extra.kind === 'habit') {
+    ui.setSelection({ kind: 'habits' })
+    return
+  }
+  // task or tracked-slot → open the task's detail panel. setSelection clears the
+  // current task and forces a list view that shows detail, so select afterwards.
+  ui.setSelection({ kind: 'smart', id: 'all' })
+  ui.selectTask(extra.id)
+}
+
 /**
  * Listen for taps on the Complete/Skip buttons. Applies the action, dismisses
  * that notification, and reschedules. Returns a cleanup function.
@@ -248,8 +272,15 @@ export function initNotificationActions(): () => void {
   void ensureActionTypes()
   const handle = LocalNotifications.addListener('localNotificationActionPerformed', async (event) => {
     const actionId = event.actionId
-    if (actionId !== 'complete' && actionId !== 'skip' && actionId !== 'snooze') return // 'tap' just opens the app
-    applyAction(actionId, event.notification.extra as ReminderExtra | undefined)
+    const extra = event.notification.extra as ReminderExtra | undefined
+    // Tapping the body (not an action button) deep-links into the item — this is
+    // what lets a "hidden details" reminder still take you straight to the task.
+    if (actionId === 'tap') {
+      openFromNotification(extra)
+      return
+    }
+    if (actionId !== 'complete' && actionId !== 'skip' && actionId !== 'snooze') return
+    applyAction(actionId, extra)
     try {
       await LocalNotifications.cancel({ notifications: [{ id: event.notification.id }] })
     } catch {
