@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Copy, Trash2, Flag, FolderInput, Star, CheckCircle2 } from 'lucide-react'
+import { Copy, Trash2, Flag, FolderInput, Star, CheckCircle2, ListChecks, SkipForward, X } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useUI } from '../store/useUI'
 import { useBackDismiss } from '../lib/backHandler'
@@ -22,7 +22,10 @@ export default function TaskListView() {
   const { updateTask, deleteTask, duplicateTask, moveTask } = useStore()
   const { selection, search, sort, group } = useUI()
   const [ctx, setCtx] = useState<Ctx | null>(null)
+  const [selectMode, setSelectMode] = useState(false)
+  const [sel, setSel] = useState<Set<string>>(new Set())
   useBackDismiss(!!ctx, () => setCtx(null))
+  useBackDismiss(selectMode, () => exitSelect())
 
   const visible = getVisibleTasks(tasks, selection, search, sort, settings.showCompleted, filters)
   const pinned = visible.filter((t) => t.pinned && !t.completed)
@@ -35,6 +38,44 @@ export default function TaskListView() {
     setCtx({ x: e.clientX, y: e.clientY, task })
   }
 
+  const exitSelect = () => {
+    setSelectMode(false)
+    setSel(new Set())
+  }
+  const startSelect = (id: string) => {
+    setCtx(null)
+    setSelectMode(true)
+    setSel(new Set([id]))
+  }
+  const toggleSelect = (id: string) => {
+    setSel((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  const allVisibleSelected = visible.length > 0 && visible.every((t) => sel.has(t.id))
+  const toggleSelectAll = () => setSel(allVisibleSelected ? new Set() : new Set(visible.map((t) => t.id)))
+
+  const bulkComplete = () => {
+    sel.forEach((id) => {
+      const t = tasks.find((x) => x.id === id)
+      if (t && !t.completed) useStore.getState().toggleTask(id)
+    })
+    exitSelect()
+  }
+  const bulkSkip = () => {
+    sel.forEach((id) => useStore.getState().skipTask(id))
+    exitSelect()
+  }
+  const bulkDelete = () => {
+    if (sel.size === 0) return
+    if (!window.confirm(`Delete ${sel.size} task${sel.size > 1 ? 's' : ''}? This can't be undone.`)) return
+    sel.forEach((id) => deleteTask(id))
+    exitSelect()
+  }
+
   if (visible.length === 0) {
     return (
       <div className="empty">
@@ -45,24 +86,26 @@ export default function TaskListView() {
     )
   }
 
+  const itemProps = { onContext: openCtx, selectMode, onToggleSelect: toggleSelect }
+
   return (
     <div className="task-scroll" onClick={() => ctx && setCtx(null)}>
       {pinned.length > 0 && (
         <>
           <div className="task-group-title">📌 Pinned</div>
           {pinned.map((t) => (
-            <TaskItem key={t.id} task={t} onContext={openCtx} />
+            <TaskItem key={t.id} task={t} selected={sel.has(t.id)} {...itemProps} />
           ))}
         </>
       )}
 
       {group === 'none'
-        ? active.map((t) => <TaskItem key={t.id} task={t} onContext={openCtx} />)
+        ? active.map((t) => <TaskItem key={t.id} task={t} selected={sel.has(t.id)} {...itemProps} />)
         : buckets.map((b) => (
             <div key={b.key}>
               {b.title && <div className="task-group-title">{b.title} · {b.tasks.length}</div>}
               {b.tasks.map((t) => (
-                <TaskItem key={t.id} task={t} onContext={openCtx} />
+                <TaskItem key={t.id} task={t} selected={sel.has(t.id)} {...itemProps} />
               ))}
             </div>
           ))}
@@ -71,7 +114,7 @@ export default function TaskListView() {
         <div className="task-group-title">Completed · {completed.length}</div>
       )}
       {(settings.showCompleted || (selection.kind === 'smart' && selection.id === 'completed')) &&
-        completed.map((t) => <TaskItem key={t.id} task={t} onContext={openCtx} />)}
+        completed.map((t) => <TaskItem key={t.id} task={t} selected={sel.has(t.id)} {...itemProps} />)}
 
       {ctx && (
         <>
@@ -80,6 +123,10 @@ export default function TaskListView() {
             className="ctx-menu"
             style={{ left: Math.min(ctx.x, window.innerWidth - 200), top: Math.min(ctx.y, window.innerHeight - 320) }}
           >
+            <button className="ctx-item" onClick={() => startSelect(ctx.task.id)}>
+              <ListChecks size={15} /> Select multiple
+            </button>
+            <div className="ctx-sep" />
             <button className="ctx-item" onClick={() => { updateTask(ctx.task.id, { pinned: !ctx.task.pinned }); setCtx(null) }}>
               <Star size={15} /> {ctx.task.pinned ? 'Unpin' : 'Pin'}
             </button>
@@ -128,6 +175,28 @@ export default function TaskListView() {
             </button>
           </div>
         </>
+      )}
+
+      {selectMode && (
+        <div className="bulk-bar" onClick={(e) => e.stopPropagation()}>
+          <button className="icon-btn" onClick={exitSelect} aria-label="Cancel selection">
+            <X size={18} />
+          </button>
+          <span className="bulk-count">{sel.size} selected</span>
+          <button className="btn ghost" onClick={toggleSelectAll}>
+            {allVisibleSelected ? 'None' : 'All'}
+          </button>
+          <div className="bulk-spacer" />
+          <button className="btn" onClick={bulkComplete} disabled={sel.size === 0}>
+            <CheckCircle2 size={16} /> Done
+          </button>
+          <button className="btn" onClick={bulkSkip} disabled={sel.size === 0}>
+            <SkipForward size={16} /> Skip
+          </button>
+          <button className="btn danger" onClick={bulkDelete} disabled={sel.size === 0}>
+            <Trash2 size={16} /> Delete
+          </button>
+        </div>
       )}
     </div>
   )

@@ -10,6 +10,9 @@ import { dayProgress } from '../lib/tracking'
 interface Props {
   task: Task
   onContext?: (e: React.MouseEvent, task: Task) => void
+  selectMode?: boolean
+  selected?: boolean
+  onToggleSelect?: (id: string) => void
 }
 
 function countdownLabel(due: string): string {
@@ -20,7 +23,7 @@ function countdownLabel(due: string): string {
   return `${diff}d left`
 }
 
-export default function TaskItem({ task, onContext }: Props) {
+export default function TaskItem({ task, onContext, selectMode = false, selected = false, onToggleSelect }: Props) {
   const toggleTask = useStore((s) => s.toggleTask)
   const toggleSlot = useStore((s) => s.toggleSlot)
   const updateTask = useStore((s) => s.updateTask)
@@ -52,10 +55,10 @@ export default function TaskItem({ task, onContext }: Props) {
 
   return (
     <div
-      className={cx('task-item', task.completed && 'done', selectedTaskId === task.id && 'selected', dropping && 'drop-target')}
-      onClick={() => selectTask(task.id)}
+      className={cx('task-item', task.completed && 'done', (selectedTaskId === task.id || (selectMode && selected)) && 'selected', dropping && 'drop-target')}
+      onClick={() => (selectMode ? onToggleSelect?.(task.id) : selectTask(task.id))}
       onContextMenu={(e) => onContext?.(e, task)}
-      draggable
+      draggable={!selectMode}
       onDragStart={onDragStart}
       onDragOver={(e) => {
         e.preventDefault()
@@ -64,7 +67,12 @@ export default function TaskItem({ task, onContext }: Props) {
       onDragLeave={() => setDropping(false)}
       onDrop={onDrop}
     >
-      {isNote ? (
+      {selectMode && (
+        <span className={cx('sel-box', selected && 'on')} aria-hidden>
+          {selected && <Check size={13} strokeWidth={3} />}
+        </span>
+      )}
+      {selectMode ? null : isNote ? (
         <span className="note-badge" aria-label="Note">
           <StickyNote size={15} />
         </span>
@@ -176,17 +184,19 @@ export default function TaskItem({ task, onContext }: Props) {
         )}
       </div>
 
-      <button
-        className={cx('task-star', 'icon-btn', task.pinned && 'on')}
-        style={{ width: 28, height: 28 }}
-        onClick={(e) => {
-          e.stopPropagation()
-          updateTask(task.id, { pinned: !task.pinned })
-        }}
-        aria-label="Pin"
-      >
-        <Star size={15} fill={task.pinned ? 'currentColor' : 'none'} />
-      </button>
+      {!selectMode && (
+        <button
+          className={cx('task-star', 'icon-btn', task.pinned && 'on')}
+          style={{ width: 28, height: 28 }}
+          onClick={(e) => {
+            e.stopPropagation()
+            updateTask(task.id, { pinned: !task.pinned })
+          }}
+          aria-label="Pin"
+        >
+          <Star size={15} fill={task.pinned ? 'currentColor' : 'none'} />
+        </button>
+      )}
     </div>
   )
 }

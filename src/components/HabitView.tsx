@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Plus, Minus, Trash2, Flame, Check, EyeOff, Eye } from 'lucide-react'
+import { Plus, Minus, Trash2, Flame, Check, EyeOff, Eye, ListChecks, CheckCircle2, X } from 'lucide-react'
 import { useStore } from '../store/useStore'
+import { useBackDismiss } from '../lib/backHandler'
 import { cx, HABIT_EMOJIS, LIST_COLORS } from '../lib/utils'
 import { todayISO, format, addDays } from '../lib/date'
 import { startOfWeek, endOfWeek, addWeeks, eachDayOfInterval } from 'date-fns'
@@ -64,8 +65,37 @@ function freqLabel(habit: Habit): string {
 
 export default function HabitView() {
   const habits = useStore((s) => s.habits)
+  const { deleteHabit, markHabitDone } = useStore()
   const [adding, setAdding] = useState(false)
+  const [selectMode, setSelectMode] = useState(false)
+  const [sel, setSel] = useState<Set<string>>(new Set())
   const active = habits.filter((h) => !h.archived)
+
+  const exitSelect = () => {
+    setSelectMode(false)
+    setSel(new Set())
+  }
+  useBackDismiss(selectMode, exitSelect)
+  const toggleSelect = (id: string) =>
+    setSel((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  const allSelected = active.length > 0 && active.every((h) => sel.has(h.id))
+  const toggleSelectAll = () => setSel(allSelected ? new Set() : new Set(active.map((h) => h.id)))
+  const bulkComplete = () => {
+    const today = todayISO()
+    sel.forEach((id) => markHabitDone(id, today))
+    exitSelect()
+  }
+  const bulkDelete = () => {
+    if (sel.size === 0) return
+    if (!window.confirm(`Delete ${sel.size} habit${sel.size > 1 ? 's' : ''}? This can't be undone.`)) return
+    sel.forEach((id) => deleteHabit(id))
+    exitSelect()
+  }
 
   return (
     <div className="scroll-page">
@@ -74,9 +104,16 @@ export default function HabitView() {
           <h2>Habits</h2>
           <div className="page-intro">Build routines and keep your streaks alive 🔥</div>
         </div>
-        <button className="btn primary" onClick={() => setAdding(true)}>
-          <Plus size={16} /> New Habit
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {active.length > 0 && !selectMode && (
+            <button className="btn" onClick={() => setSelectMode(true)}>
+              <ListChecks size={16} /> Select
+            </button>
+          )}
+          <button className="btn primary" onClick={() => setAdding(true)}>
+            <Plus size={16} /> New Habit
+          </button>
+        </div>
       </div>
 
       {active.length === 0 && (
@@ -86,14 +123,45 @@ export default function HabitView() {
         </div>
       )}
 
-      {active.map((h) => <HabitCard key={h.id} habit={h} />)}
+      {active.map((h) => (
+        <HabitCard key={h.id} habit={h} selectMode={selectMode} selected={sel.has(h.id)} onToggleSelect={toggleSelect} />
+      ))}
 
       {adding && <HabitModal onClose={() => setAdding(false)} />}
+
+      {selectMode && (
+        <div className="bulk-bar">
+          <button className="icon-btn" onClick={exitSelect} aria-label="Cancel selection">
+            <X size={18} />
+          </button>
+          <span className="bulk-count">{sel.size} selected</span>
+          <button className="btn ghost" onClick={toggleSelectAll}>
+            {allSelected ? 'None' : 'All'}
+          </button>
+          <div className="bulk-spacer" />
+          <button className="btn" onClick={bulkComplete} disabled={sel.size === 0}>
+            <CheckCircle2 size={16} /> Done
+          </button>
+          <button className="btn danger" onClick={bulkDelete} disabled={sel.size === 0}>
+            <Trash2 size={16} /> Delete
+          </button>
+        </div>
+      )}
     </div>
   )
 }
 
-function HabitCard({ habit: h }: { habit: Habit }) {
+function HabitCard({
+  habit: h,
+  selectMode = false,
+  selected = false,
+  onToggleSelect,
+}: {
+  habit: Habit
+  selectMode?: boolean
+  selected?: boolean
+  onToggleSelect?: (id: string) => void
+}) {
   const { incrementHabit, deleteHabit, updateHabit } = useStore()
   const [tab, setTab] = useState<'recent' | 'month'>('recent')
   const today = todayISO()
@@ -102,8 +170,16 @@ function HabitCard({ habit: h }: { habit: Habit }) {
   const st = streak(h)
 
   return (
-    <div className="habit-card">
+    <div
+      className={cx('habit-card', selectMode && 'selectable', selected && 'selected')}
+      onClick={selectMode ? () => onToggleSelect?.(h.id) : undefined}
+    >
       <div className="habit-head">
+        {selectMode && (
+          <span className={cx('sel-box', selected && 'on')} aria-hidden>
+            {selected && <Check size={13} strokeWidth={3} />}
+          </span>
+        )}
         <div className="habit-emoji" style={{ background: h.color + '22', color: h.color }}>{h.emoji}</div>
         <div>
           <div className="habit-name">{h.name}</div>
@@ -112,35 +188,39 @@ function HabitCard({ habit: h }: { habit: Habit }) {
             {h.reminderTime && <> · ⏰ {h.reminderTime}</>}
           </div>
         </div>
-        <div className="habit-controls">
-          <button className="step-btn" onClick={() => incrementHabit(h.id, today, -1)}>
-            <Minus size={16} />
-          </button>
-          <span className="habit-today-val" style={{ color: done ? h.color : undefined }}>
-            {done && <Check size={14} style={{ verticalAlign: -2 }} />} {todayVal}/{h.goal}
-          </span>
-          <button className="step-btn" onClick={() => incrementHabit(h.id, today, 1)}>
-            <Plus size={16} />
-          </button>
-          <button
-            className={cx('icon-btn', h.hidePrivate && 'on')}
-            onClick={() => updateHabit(h.id, { hidePrivate: !h.hidePrivate })}
-            title={h.hidePrivate ? 'Reminder details hidden in notifications' : 'Show reminder details in notifications'}
-          >
-            {h.hidePrivate ? <EyeOff size={15} /> : <Eye size={15} />}
-          </button>
-          <button className="icon-btn" onClick={() => deleteHabit(h.id)} title="Delete habit">
-            <Trash2 size={15} />
-          </button>
+        {!selectMode && (
+          <div className="habit-controls">
+            <button className="step-btn" onClick={() => incrementHabit(h.id, today, -1)}>
+              <Minus size={16} />
+            </button>
+            <span className="habit-today-val" style={{ color: done ? h.color : undefined }}>
+              {done && <Check size={14} style={{ verticalAlign: -2 }} />} {todayVal}/{h.goal}
+            </span>
+            <button className="step-btn" onClick={() => incrementHabit(h.id, today, 1)}>
+              <Plus size={16} />
+            </button>
+            <button
+              className={cx('icon-btn', h.hidePrivate && 'on')}
+              onClick={() => updateHabit(h.id, { hidePrivate: !h.hidePrivate })}
+              title={h.hidePrivate ? 'Reminder details hidden in notifications' : 'Show reminder details in notifications'}
+            >
+              {h.hidePrivate ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+            <button className="icon-btn" onClick={() => deleteHabit(h.id)} title="Delete habit">
+              <Trash2 size={15} />
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div style={selectMode ? { pointerEvents: 'none', opacity: 0.7 } : undefined}>
+        <div className="addbar-toggle" style={{ marginBottom: 10 }} role="group" aria-label="History view">
+          <button className={cx(tab === 'recent' && 'active')} onClick={() => setTab('recent')}>Recent</button>
+          <button className={cx(tab === 'month' && 'active')} onClick={() => setTab('month')}>Month</button>
         </div>
-      </div>
 
-      <div className="addbar-toggle" style={{ marginBottom: 10 }} role="group" aria-label="History view">
-        <button className={cx(tab === 'recent' && 'active')} onClick={() => setTab('recent')}>Recent</button>
-        <button className={cx(tab === 'month' && 'active')} onClick={() => setTab('month')}>Month</button>
+        {tab === 'recent' ? <Heatmap habit={h} /> : <HabitMonthCalendar habit={h} />}
       </div>
-
-      {tab === 'recent' ? <Heatmap habit={h} /> : <HabitMonthCalendar habit={h} />}
     </div>
   )
 }

@@ -439,6 +439,58 @@ select {
   transition: all 0.12s;
   background: var(--bg-elevated);
 }
+
+/* Multi-select checkbox shown in selection mode */
+.sel-box {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #fff;
+  transition: all 0.12s;
+  background: var(--bg-elevated);
+}
+.sel-box.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Floating bulk-action bar for multi-select */
+.bulk-bar {
+  position: sticky;
+  bottom: 12px;
+  margin: 12px auto 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  z-index: 30;
+  flex-wrap: wrap;
+}
+.bulk-count {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.bulk-spacer {
+  flex: 1;
+  min-width: 4px;
+}
+.habit-card.selectable {
+  cursor: pointer;
+}
+.habit-card.selected {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: var(--bg-active);
+}
 .checkbox.p1 {
   border-color: #4772fa;
 }
@@ -1373,6 +1425,22 @@ select {
   padding: 12px 26px;
   font-size: 15px;
   border-radius: 30px;
+}
+.btn.danger {
+  color: var(--red);
+  border-color: color-mix(in srgb, var(--red) 40%, var(--border));
+}
+.btn.danger:hover {
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+}
+.btn.ghost {
+  background: transparent;
+  border-color: transparent;
+  padding: 8px 10px;
+}
+.btn:disabled {
+  opacity: 0.45;
+  pointer-events: none;
 }
 
 /* ---------------- Modal ---------------- */
