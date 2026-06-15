@@ -8,6 +8,7 @@ import type { LocalNotificationSchema } from '@capacitor/local-notifications'
 import type { Task, Habit } from '../types'
 import { useStore } from '../store/useStore'
 import { todayISO } from './date'
+import { getSnoozes, setSnooze, snoozeKeyFor } from './snooze'
 
 export type NativePerm = 'granted' | 'denied' | 'prompt'
 
@@ -20,6 +21,7 @@ const SMALL_ICON = 'ic_stat_notify'
 const PRIVATE_TITLE = 'TickFlow'
 const PRIVATE_BODY = 'You have a new reminder'
 const ACTION_TYPE = 'REMINDER'
+const SNOOZE_MS = 60 * 60_000 // snooze quiets a reminder for 1 hour
 
 type ReminderExtra = { kind: 'task' | 'slot' | 'habit'; id: string; slotId?: string }
 
@@ -34,6 +36,7 @@ async function ensureActionTypes(): Promise<void> {
           id: ACTION_TYPE,
           actions: [
             { id: 'complete', title: '✓ Complete' },
+            { id: 'snooze', title: 'Snooze 1h' },
             { id: 'skip', title: 'Skip' },
           ],
         },
@@ -103,6 +106,7 @@ function buildNotifications(tasks: Task[], habits: Habit[]): LocalNotificationSc
   const out: LocalNotificationSchema[] = []
   const now = Date.now()
   const todayKey = todayISO()
+  const snoozes = getSnoozes()
   const INTERVAL = 15 * 60_000 // re-remind every 15 minutes
   const NAG_WINDOW = 3 * 3600_000 // for up to 3 hours after the time
   const MAX_PER = 12 // cap nag copies per reminder
@@ -117,8 +121,11 @@ function buildNotifications(tasks: Task[], habits: Habit[]): LocalNotificationSc
   // recomputes the same times) — it reappears after "Clear all" until it's acted
   // on (which drops it on the next resync).
   const addNag = (keyBase: string, firstTs: number, title: string, body: string, extra: ReminderExtra) => {
+    // honor a per-reminder snooze: don't re-fire until the snooze expires
+    const until = snoozes[snoozeKeyFor(extra.kind, extra.id, extra.slotId)] || 0
+    const start = Math.max(firstTs, until)
     let i = 0
-    for (let ts = firstTs; ts <= firstTs + NAG_WINDOW && i < MAX_PER; ts += INTERVAL) {
+    for (let ts = start; ts <= start + NAG_WINDOW && i < MAX_PER; ts += INTERVAL) {
       if (ts <= now + 1000) continue
       out.push({ id: hashId(`${keyBase}:${i}`), title, body, schedule: { at: new Date(ts), allowWhileIdle: true }, extra })
       i++
@@ -227,6 +234,8 @@ function applyAction(actionId: string, extra: ReminderExtra | undefined): void {
   } else if (actionId === 'skip') {
     if (extra.kind === 'task') s.skipTask(extra.id)
     // slot/habit "skip" just dismisses the notification — no data change
+  } else if (actionId === 'snooze') {
+    setSnooze(snoozeKeyFor(extra.kind, extra.id, extra.slotId), Date.now() + SNOOZE_MS)
   }
 }
 
@@ -239,7 +248,7 @@ export function initNotificationActions(): () => void {
   void ensureActionTypes()
   const handle = LocalNotifications.addListener('localNotificationActionPerformed', async (event) => {
     const actionId = event.actionId
-    if (actionId !== 'complete' && actionId !== 'skip') return // 'tap' just opens the app
+    if (actionId !== 'complete' && actionId !== 'skip' && actionId !== 'snooze') return // 'tap' just opens the app
     applyAction(actionId, event.notification.extra as ReminderExtra | undefined)
     try {
       await LocalNotifications.cancel({ notifications: [{ id: event.notification.id }] })
