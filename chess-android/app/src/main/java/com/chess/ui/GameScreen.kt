@@ -1,5 +1,6 @@
 package com.chess.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -240,7 +241,7 @@ private fun PromotionDialog(
                             .padding(4.dp)
                             .height(56.dp)
                             .width(48.dp)
-                            .clickableSelect { onChoose(type) }
+                            .clickable { onChoose(type) }
                     )
                 }
             }
@@ -282,6 +283,3 @@ private fun playerName(state: ChessUiState, color: PieceColor): String = when {
     color == state.humanColor -> "You (${color.label()})"
     else -> "Computer (${state.aiLevel.displayName})"
 }
-
-private fun Modifier.clickableSelect(onClick: () -> Unit): Modifier =
-    this.then(androidx.compose.foundation.clickable(onClick = onClick))
