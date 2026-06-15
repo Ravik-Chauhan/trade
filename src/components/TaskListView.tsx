@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Copy, Trash2, Flag, FolderInput, Star, CheckCircle2 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useUI } from '../store/useUI'
+import { useBackDismiss } from '../lib/backHandler'
 import { getVisibleTasks, groupTasks } from '../lib/selectors'
 import TaskItem from './TaskItem'
 import type { Task, Priority } from '../types'
@@ -21,6 +22,7 @@ export default function TaskListView() {
   const { updateTask, deleteTask, duplicateTask, moveTask } = useStore()
   const { selection, search, sort, group } = useUI()
   const [ctx, setCtx] = useState<Ctx | null>(null)
+  useBackDismiss(!!ctx, () => setCtx(null))
 
   const visible = getVisibleTasks(tasks, selection, search, sort, settings.showCompleted, filters)
   const pinned = visible.filter((t) => t.pinned && !t.completed)

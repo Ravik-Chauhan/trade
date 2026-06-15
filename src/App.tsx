@@ -17,6 +17,7 @@ import Toasts from './components/Toasts'
 import { useReminderEngine } from './hooks/useReminderEngine'
 import { useNativeNotifications } from './hooks/useNativeNotifications'
 import { useAppLock } from './hooks/useAppLock'
+import { useBackButton } from './hooks/useBackButton'
 import LockScreen from './components/LockScreen'
 import { useSync } from './hooks/useSync'
 
@@ -48,6 +49,7 @@ export default function App() {
   useReminderEngine()
   useNativeNotifications()
   useAppLock()
+  useBackButton()
   useSync()
   const selection = useUI((s) => s.selection)
   const view = useUI((s) => s.view)

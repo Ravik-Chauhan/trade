@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useUI } from '../store/useUI'
+import { useBackDismiss } from '../lib/backHandler'
 import { cx } from '../lib/utils'
 import type { SortMode, ViewMode, GroupMode } from '../types'
 
@@ -54,6 +55,11 @@ export default function Header() {
   const [sortOpen, setSortOpen] = useState(false)
   const [groupOpen, setGroupOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
+  useBackDismiss(sortOpen || groupOpen || moreOpen, () => {
+    setSortOpen(false)
+    setGroupOpen(false)
+    setMoreOpen(false)
+  })
 
   let title = ''
   let emoji = ''
