@@ -30,7 +30,7 @@ import { useUI, type Selection } from '../store/useUI'
 import { countForSelection } from '../lib/selectors'
 import { cx, LIST_COLORS, PRIORITY_META } from '../lib/utils'
 import Modal from './Modal'
-import type { TaskList, SmartFilter, Priority, DueFilter } from '../types'
+import type { TaskList, SmartFilter, Priority, DueFilter, Folder } from '../types'
 
 const SMART = [
   { id: 'today', label: 'Today', icon: Sun },
@@ -44,7 +44,7 @@ const SMART = [
 ] as const
 
 export default function Sidebar() {
-  const { lists, tags, tasks, folders, filters, updateFolder, addFolder } = useStore()
+  const { lists, tags, tasks, folders, filters, updateFolder, deleteTag } = useStore()
   const selection = useUI((s) => s.selection)
   const setSelection = useUI((s) => s.setSelection)
   const setSidebar = useUI((s) => s.setSidebar)
@@ -53,6 +53,7 @@ export default function Sidebar() {
   const sidebarOpen = useUI((s) => s.sidebarOpen)
   const [editing, setEditing] = useState<TaskList | 'new' | null>(null)
   const [editingFilter, setEditingFilter] = useState<SmartFilter | 'new' | null>(null)
+  const [editingFolder, setEditingFolder] = useState<Folder | 'new' | null>(null)
 
   const isActive = (sel: Selection) =>
     selection.kind === sel.kind && ('id' in selection && 'id' in sel ? selection.id === sel.id : true)
@@ -159,7 +160,7 @@ export default function Sidebar() {
           <div className="nav-section-title">
             Lists
             <span style={{ display: 'flex', gap: 2 }}>
-              <button onClick={() => { const n = prompt('Folder name'); if (n) addFolder(n) }} title="New folder">
+              <button onClick={() => setEditingFolder('new')} title="New folder">
                 <FolderPlus size={15} />
               </button>
               <button onClick={() => setEditing('new')} title="New list">
@@ -179,6 +180,13 @@ export default function Sidebar() {
                   <span className="nav-icon">{folder.collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}</span>
                   <FolderIcon size={15} style={{ color: 'var(--text-muted)' }} />
                   <span className="nav-label" style={{ marginLeft: 6 }}>{folder.name}</span>
+                  <span
+                    className="icon-btn"
+                    style={{ width: 22, height: 22 }}
+                    onClick={(e) => { e.stopPropagation(); setEditingFolder(folder) }}
+                  >
+                    <Pencil size={13} />
+                  </span>
                   <span className="nav-count">{inFolder.length}</span>
                 </button>
                 {!folder.collapsed && (
@@ -200,6 +208,17 @@ export default function Sidebar() {
                 >
                   <span className="nav-icon" style={{ color: tag.color }}><Hash size={16} /></span>
                   <span className="nav-label">{tag.name}</span>
+                  <span
+                    className="icon-btn"
+                    style={{ width: 22, height: 22 }}
+                    title="Delete tag"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (window.confirm(`Delete tag "${tag.name}"? It will be removed from all tasks.`)) deleteTag(tag.name)
+                    }}
+                  >
+                    <Trash2 size={13} />
+                  </span>
                   <span className="nav-count">{countForSelection(tasks, { kind: 'tag', id: tag.name })}</span>
                 </button>
               ))}
@@ -221,6 +240,9 @@ export default function Sidebar() {
       {editing && <ListModal list={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
       {editingFilter && (
         <FilterModal filter={editingFilter === 'new' ? null : editingFilter} onClose={() => setEditingFilter(null)} />
+      )}
+      {editingFolder && (
+        <FolderModal folder={editingFolder === 'new' ? null : editingFolder} onClose={() => setEditingFolder(null)} />
       )}
     </>
   )
@@ -247,6 +269,53 @@ function ListNavItem({ list, active, count, onClick, onEdit }: { list: TaskList;
       </span>
       {count > 0 && <span className="nav-count">{count}</span>}
     </button>
+  )
+}
+
+function FolderModal({ folder, onClose }: { folder: Folder | null; onClose: () => void }) {
+  const { addFolder, updateFolder, deleteFolder, lists } = useStore()
+  const [name, setName] = useState(folder?.name ?? '')
+  const listCount = folder ? lists.filter((l) => l.folderId === folder.id).length : 0
+
+  const save = () => {
+    if (!name.trim()) return
+    if (folder) updateFolder(folder.id, { name: name.trim() })
+    else addFolder(name.trim())
+    onClose()
+  }
+
+  const remove = () => {
+    if (!folder) return
+    const msg = listCount > 0
+      ? `Delete folder "${folder.name}"? Its ${listCount} list${listCount > 1 ? 's' : ''} will be kept and moved out of the folder.`
+      : `Delete folder "${folder.name}"?`
+    if (window.confirm(msg)) {
+      deleteFolder(folder.id)
+      onClose()
+    }
+  }
+
+  return (
+    <Modal
+      title={folder ? 'Edit Folder' : 'New Folder'}
+      onClose={onClose}
+      footer={
+        <>
+          {folder && (
+            <button className="danger-btn" style={{ marginRight: 'auto' }} onClick={remove}>
+              <Trash2 size={15} /> Delete
+            </button>
+          )}
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn primary" onClick={save} disabled={!name.trim()}>Save</button>
+        </>
+      }
+    >
+      <div>
+        <label className="form-label">Folder name</label>
+        <input className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Health" onKeyDown={(e) => e.key === 'Enter' && name.trim() && save()} />
+      </div>
+    </Modal>
   )
 }
 
