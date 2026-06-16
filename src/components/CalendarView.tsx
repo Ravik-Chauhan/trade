@@ -21,6 +21,7 @@ import {
 import { useStore } from '../store/useStore'
 import { useUI } from '../store/useUI'
 import { cx } from '../lib/utils'
+import { itemsForDay, overdueItems, type CalItem } from '../lib/calendarItems'
 import type { Task } from '../types'
 
 type CalView = 'month' | 'week' | 'day' | 'agenda'
@@ -34,13 +35,7 @@ export default function CalendarView() {
 
   const weekOpts = { weekStartsOn: (weekStartsMonday ? 1 : 0) as 0 | 1 }
 
-  const tasksByDay: Record<string, Task[]> = {}
-  tasks.forEach((t) => {
-    if (!t.dueDate) return
-    const key = format(parseISO(t.dueDate), 'yyyy-MM-dd')
-    ;(tasksByDay[key] ??= []).push(t)
-  })
-  const dayTasks = (d: Date) => (tasksByDay[format(d, 'yyyy-MM-dd')] ?? []).sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? ''))
+  const dayItems = (d: Date) => itemsForDay(tasks, format(d, 'yyyy-MM-dd'))
 
   const move = (dir: 1 | -1) => {
     if (calView === 'month') setCursor((c) => (dir === 1 ? addMonths(c, 1) : subMonths(c, 1)))
@@ -79,12 +74,12 @@ export default function CalendarView() {
       </div>
 
       {calView === 'month' && (
-        <MonthGrid cursor={cursor} weekOpts={weekOpts} weekStartsMonday={weekStartsMonday} dayTasks={dayTasks} onPick={selectTask} />
+        <MonthGrid cursor={cursor} weekOpts={weekOpts} weekStartsMonday={weekStartsMonday} dayItems={dayItems} onPick={selectTask} />
       )}
       {calView === 'week' && (
-        <WeekGrid cursor={cursor} weekOpts={weekOpts} weekStartsMonday={weekStartsMonday} dayTasks={dayTasks} onPick={selectTask} />
+        <WeekGrid cursor={cursor} weekOpts={weekOpts} weekStartsMonday={weekStartsMonday} dayItems={dayItems} onPick={selectTask} />
       )}
-      {calView === 'day' && <DayList cursor={cursor} dayTasks={dayTasks} onPick={selectTask} />}
+      {calView === 'day' && <DayList cursor={cursor} tasks={tasks} onPick={selectTask} />}
       {calView === 'agenda' && <AgendaList tasks={tasks} onPick={selectTask} />}
     </div>
   )
@@ -92,25 +87,39 @@ export default function CalendarView() {
 
 const PRIO_COLORS = ['var(--accent)', '#4772fa', 'var(--amber)', 'var(--red)']
 
-function EventChip({ t, onPick }: { t: Task; onPick: (id: string) => void }) {
+function EventChip({ item, onPick }: { item: CalItem; onPick: (id: string) => void }) {
   return (
     <div
-      className={cx('cal-event', t.completed && 'done')}
-      style={{ borderLeftColor: PRIO_COLORS[t.priority] }}
-      onClick={() => onPick(t.id)}
-      title={t.title}
+      className={cx('cal-event', item.completed && 'done')}
+      style={{ borderLeftColor: PRIO_COLORS[item.priority] }}
+      onClick={() => onPick(item.taskId)}
+      title={item.title}
     >
-      {t.hasTime && t.dueDate ? `${format(parseISO(t.dueDate), 'HH:mm')} ` : ''}
-      {t.title}
+      {item.time ? `${item.time} ` : ''}
+      {item.title}
     </div>
   )
 }
 
-function MonthGrid({ cursor, weekOpts, weekStartsMonday, dayTasks, onPick }: {
+function ItemRow({ item, onPick }: { item: CalItem; onPick: (id: string) => void }) {
+  return (
+    <div className="task-item" onClick={() => onPick(item.taskId)}>
+      <span className="dot" style={{ background: PRIO_COLORS[item.priority], marginTop: 6 }} />
+      <div className="task-body">
+        <div className={cx('task-title', item.completed && 'done')}>{item.title}</div>
+        {item.time && (
+          <div className="task-meta"><span className="meta-chip">{item.time}</span></div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function MonthGrid({ cursor, weekOpts, weekStartsMonday, dayItems, onPick }: {
   cursor: Date
   weekOpts: { weekStartsOn: 0 | 1 }
   weekStartsMonday: boolean
-  dayTasks: (d: Date) => Task[]
+  dayItems: (d: Date) => CalItem[]
   onPick: (id: string) => void
 }) {
   const gridStart = startOfWeek(startOfMonth(cursor), weekOpts)
@@ -124,11 +133,11 @@ function MonthGrid({ cursor, weekOpts, weekStartsMonday, dayTasks, onPick }: {
     <div className="cal-grid">
       {weekdays.map((d) => <div key={d} className="cal-weekday">{d}</div>)}
       {days.map((day) => {
-        const list = dayTasks(day)
+        const list = dayItems(day)
         return (
           <div key={day.toISOString()} className={cx('cal-day', !isSameMonth(day, cursor) && 'muted', isToday(day) && 'today')}>
             <span className="daynum">{format(day, 'd')}</span>
-            {list.slice(0, 3).map((t) => <EventChip key={t.id} t={t} onPick={onPick} />)}
+            {list.slice(0, 3).map((it) => <EventChip key={it.key} item={it} onPick={onPick} />)}
             {list.length > 3 && <div className="cal-more">+{list.length - 3} more</div>}
           </div>
         )
@@ -137,11 +146,11 @@ function MonthGrid({ cursor, weekOpts, weekStartsMonday, dayTasks, onPick }: {
   )
 }
 
-function WeekGrid({ cursor, weekOpts, dayTasks, onPick }: {
+function WeekGrid({ cursor, weekOpts, dayItems, onPick }: {
   cursor: Date
   weekOpts: { weekStartsOn: 0 | 1 }
   weekStartsMonday: boolean
-  dayTasks: (d: Date) => Task[]
+  dayItems: (d: Date) => CalItem[]
   onPick: (id: string) => void
 }) {
   const start = startOfWeek(cursor, weekOpts)
@@ -155,10 +164,10 @@ function WeekGrid({ cursor, weekOpts, dayTasks, onPick }: {
         </div>
       ))}
       {days.map((day) => {
-        const list = dayTasks(day)
+        const list = dayItems(day)
         return (
           <div key={'c' + day.toISOString()} className={cx('cal-day', isToday(day) && 'today')} style={{ minHeight: 200 }}>
-            {list.map((t) => <EventChip key={t.id} t={t} onPick={onPick} />)}
+            {list.map((it) => <EventChip key={it.key} item={it} onPick={onPick} />)}
             {list.length === 0 && <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>}
           </div>
         )
@@ -167,48 +176,68 @@ function WeekGrid({ cursor, weekOpts, dayTasks, onPick }: {
   )
 }
 
-function DayList({ cursor, dayTasks, onPick }: { cursor: Date; dayTasks: (d: Date) => Task[]; onPick: (id: string) => void }) {
-  const list = dayTasks(cursor)
+function DayList({ cursor, tasks, onPick }: { cursor: Date; tasks: Task[]; onPick: (id: string) => void }) {
+  const dayKey = format(cursor, 'yyyy-MM-dd')
+  const todayKey = format(new Date(), 'yyyy-MM-dd')
+  const viewingToday = dayKey === todayKey
+  const overdue = viewingToday ? overdueItems(tasks, todayKey) : []
+  const items = itemsForDay(tasks, dayKey)
+
+  if (overdue.length === 0 && items.length === 0) {
+    return (
+      <div className="empty" style={{ height: 240 }}>
+        <span className="emoji">📅</span>
+        <div>Nothing scheduled for this day.</div>
+      </div>
+    )
+  }
+
   return (
     <div className="scroll-page" style={{ padding: '8px 4px' }}>
-      {list.length === 0 ? (
-        <div className="empty" style={{ height: 240 }}>
-          <span className="emoji">📅</span>
-          <div>Nothing scheduled for this day.</div>
-        </div>
-      ) : (
-        list.map((t) => (
-          <div key={t.id} className="task-item" onClick={() => onPick(t.id)}>
-            <span className="dot" style={{ background: PRIO_COLORS[t.priority], marginTop: 6 }} />
-            <div className="task-body">
-              <div className={cx('task-title', t.completed && 'done')}>{t.title}</div>
-              {t.hasTime && t.dueDate && (
-                <div className="task-meta"><span className="meta-chip">{format(parseISO(t.dueDate), 'HH:mm')}</span></div>
-              )}
-            </div>
-          </div>
-        ))
+      {overdue.length > 0 && (
+        <>
+          <div className="task-group-title" style={{ color: 'var(--red)' }}>⚠️ Overdue · {overdue.length}</div>
+          {overdue.map((it) => <ItemRow key={it.key} item={it} onPick={onPick} />)}
+        </>
+      )}
+      {items.length > 0 && (
+        <>
+          <div className="task-group-title">{viewingToday ? 'Today' : format(cursor, 'EEE, MMM d')} · {items.length}</div>
+          {items.map((it) => <ItemRow key={it.key} item={it} onPick={onPick} />)}
+        </>
       )}
     </div>
   )
 }
 
 function AgendaList({ tasks, onPick }: { tasks: Task[]; onPick: (id: string) => void }) {
-  const scheduled = tasks
-    .filter((t) => t.dueDate && !t.completed)
-    .sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? ''))
+  const todayKey = format(new Date(), 'yyyy-MM-dd')
+  const overdue = overdueItems(tasks, todayKey)
+  const todayItems = itemsForDay(tasks, todayKey)
 
-  const groups: { label: string; items: Task[] }[] = []
-  const byDay = new Map<string, Task[]>()
-  scheduled.forEach((t) => {
-    const key = format(parseISO(t.dueDate!), 'yyyy-MM-dd')
+  // upcoming due-dated tasks after today (tracking recurs daily, so it's only
+  // surfaced for Today here to keep the agenda finite)
+  const byDay = new Map<string, CalItem[]>()
+  tasks.forEach((t) => {
+    if (t.kind === 'note' || t.trackingEnabled || t.completed || !t.dueDate) return
+    const key = format(parseISO(t.dueDate), 'yyyy-MM-dd')
+    if (key <= todayKey) return
     if (!byDay.has(key)) byDay.set(key, [])
-    byDay.get(key)!.push(t)
+    byDay.get(key)!.push({
+      key: t.id, taskId: t.id, title: t.title,
+      time: t.hasTime ? format(parseISO(t.dueDate), 'HH:mm') : null,
+      priority: t.priority, completed: false, tracking: false,
+    })
   })
+
+  const groups: { label: string; danger?: boolean; items: CalItem[] }[] = []
+  if (overdue.length) groups.push({ label: '⚠️ Overdue', danger: true, items: overdue })
+  if (todayItems.length) groups.push({ label: 'Today', items: todayItems })
   Array.from(byDay.keys()).sort().forEach((key) => {
     const d = parseISO(key)
-    const label = isToday(d) ? 'Today' : isSameDay(d, addDaysFn(new Date(), 1)) ? 'Tomorrow' : format(d, 'EEEE, MMM d')
-    groups.push({ label, items: byDay.get(key)! })
+    const label = isSameDay(d, addDaysFn(new Date(), 1)) ? 'Tomorrow' : format(d, 'EEEE, MMM d')
+    const items = byDay.get(key)!.sort((a, b) => (a.time ?? '~').localeCompare(b.time ?? '~'))
+    groups.push({ label, items })
   })
 
   if (groups.length === 0) {
@@ -224,18 +253,8 @@ function AgendaList({ tasks, onPick }: { tasks: Task[]; onPick: (id: string) => 
     <div className="scroll-page" style={{ padding: '8px 4px' }}>
       {groups.map((g) => (
         <div key={g.label}>
-          <div className="task-group-title">{g.label}</div>
-          {g.items.map((t) => (
-            <div key={t.id} className="task-item" onClick={() => onPick(t.id)}>
-              <span className="dot" style={{ background: PRIO_COLORS[t.priority], marginTop: 6 }} />
-              <div className="task-body">
-                <div className="task-title">{t.title}</div>
-                {t.hasTime && t.dueDate && (
-                  <div className="task-meta"><span className="meta-chip">{format(parseISO(t.dueDate), 'HH:mm')}</span></div>
-                )}
-              </div>
-            </div>
-          ))}
+          <div className="task-group-title" style={g.danger ? { color: 'var(--red)' } : undefined}>{g.label} · {g.items.length}</div>
+          {g.items.map((it) => <ItemRow key={it.key} item={it} onPick={onPick} />)}
         </div>
       ))}
     </div>
