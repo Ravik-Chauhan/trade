@@ -187,4 +187,25 @@ export function recurrenceLabel(rec: Recurrence): string {
   return base
 }
 
+/**
+ * Toggle a recurring occurrence's completed mark. Un-completing a day earlier
+ * than the current due date rolls the due date back to it (keeping the time of
+ * day) so the series resumes there — how a mistaken future completion is undone.
+ * Pure: returns the new recurrenceLog + dueDate without mutating anything.
+ */
+export function toggleOccurrence(
+  recurrenceLog: string[],
+  dueDate: string | null,
+  dateKey: string
+): { recurrenceLog: string[]; dueDate: string | null } {
+  if (!recurrenceLog.includes(dateKey)) {
+    return { recurrenceLog: [...recurrenceLog, dateKey], dueDate }
+  }
+  const log = recurrenceLog.filter((d) => d !== dateKey)
+  const dueDay = dueDate ? dueDate.slice(0, 10) : null
+  const time = dueDate && dueDate.length > 10 ? dueDate.slice(10) : ''
+  const nextDue = dueDay && dateKey < dueDay ? dateKey + time : dueDate
+  return { recurrenceLog: log, dueDate: nextDue }
+}
+
 export { format, parseISO, isToday, addDays, startOfDay }

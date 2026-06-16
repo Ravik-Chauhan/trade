@@ -26,7 +26,7 @@ import { NO_RECURRENCE } from '../types'
 import TaskTrackingCalendar from './TaskTrackingCalendar'
 import OccurrencePreview from './OccurrencePreview'
 import { SLOT_PRESETS, makeSlot, trackingStreak } from '../lib/tracking'
-import { todayISO, format, addDays, parseISO } from '../lib/date'
+import { todayISO, format, addDays, parseISO, toggleOccurrence } from '../lib/date'
 
 const REPEAT_OPTIONS: { value: RepeatRule; label: string }[] = [
   { value: 'none', label: 'No repeat' },
@@ -44,6 +44,7 @@ const REPEAT_OPTIONS: { value: RepeatRule; label: string }[] = [
 const BUFFERED: (keyof Task)[] = [
   'title', 'notes', 'kind', 'dueDate', 'hasTime', 'startDate', 'listId', 'columnId',
   'priority', 'tags', 'recurrence', 'reminders', 'countdown', 'subtasks', 'hidePrivate',
+  'recurrenceLog',
 ]
 const pick = (t: Task): Partial<Task> =>
   BUFFERED.reduce((o, k) => ({ ...o, [k]: t[k] }), {} as Partial<Task>)
@@ -54,20 +55,13 @@ export default function TaskDetail() {
   const task = useStore((s) => s.tasks.find((t) => t.id === selectedTaskId))
   const allTags = useStore((s) => s.tags)
   const lists = useStore((s) => s.lists)
-  const { updateTask, deleteTask, toggleTask, skipTask, addTag, toggleRecurrenceDay } = useStore()
+  const { updateTask, deleteTask, toggleTask, skipTask, addTag } = useStore()
   const pushToast = useToasts((s) => s.push)
 
-  // Toggling an occurrence in the monthly view is a live action (commits now,
-  // not on Save). Mirror the store's resulting recurrenceLog + dueDate back into
-  // the draft so the calendar updates immediately and Save isn't left "dirty".
+  // Toggle an occurrence's completed mark in the draft; persists on Save like
+  // any other edit.
   const onToggleRecurrenceDay = (dateKey: string) => {
-    const id = selectedTaskId
-    if (!id) return
-    toggleRecurrenceDay(id, dateKey)
-    const updated = useStore.getState().tasks.find((x) => x.id === id)
-    if (updated) {
-      setDraft((d) => (d ? { ...d, recurrenceLog: [...updated.recurrenceLog], dueDate: updated.dueDate } : d))
-    }
+    setDraft((d) => (d ? { ...d, ...toggleOccurrence(d.recurrenceLog, d.dueDate, dateKey) } : d))
   }
 
   // local draft — all field edits go here and only commit on Save

@@ -9,11 +9,37 @@ import {
   isWithinNext7,
   isDueToday,
   isDueTomorrow,
+  toggleOccurrence,
 } from './date'
 import type { Recurrence } from '../types'
 import { NO_RECURRENCE } from '../types'
 
 const rec = (over: Partial<Recurrence>): Recurrence => ({ ...NO_RECURRENCE, ...over })
+
+describe('toggleOccurrence', () => {
+  it('adds an unlogged day without changing the due date', () => {
+    const r = toggleOccurrence(['2026-06-15'], '2026-06-22T10:00:00', '2026-06-08')
+    expect(r.recurrenceLog).toEqual(['2026-06-15', '2026-06-08'])
+    expect(r.dueDate).toBe('2026-06-22T10:00:00')
+  })
+
+  it('removes a logged day earlier than due and rolls the due date back, keeping the time', () => {
+    const r = toggleOccurrence(['2026-06-15', '2026-06-22'], '2026-06-29T10:00:00', '2026-06-22')
+    expect(r.recurrenceLog).toEqual(['2026-06-15'])
+    expect(r.dueDate).toBe('2026-06-22T10:00:00')
+  })
+
+  it('removing a day on/after the due date leaves the due date alone', () => {
+    const r = toggleOccurrence(['2026-06-29'], '2026-06-22T10:00:00', '2026-06-29')
+    expect(r.recurrenceLog).toEqual([])
+    expect(r.dueDate).toBe('2026-06-22T10:00:00')
+  })
+
+  it('preserves a date-only due date when rolling back', () => {
+    const r = toggleOccurrence(['2026-06-22'], '2026-06-29', '2026-06-22')
+    expect(r.dueDate).toBe('2026-06-22')
+  })
+})
 
 describe('stepDate', () => {
   it('advances by N days', () => {

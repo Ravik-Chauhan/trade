@@ -24,7 +24,6 @@ interface Store extends AppState {
   updateTask: (id: string, patch: Partial<Task>) => void
   toggleTask: (id: string) => void
   skipTask: (id: string) => void
-  toggleRecurrenceDay: (id: string, dateKey: string) => void
   deleteTask: (id: string) => void
   duplicateTask: (id: string) => void
   moveTask: (id: string, listId: string, columnId?: string | null) => void
@@ -180,26 +179,6 @@ export const useStore = create<Store>()(
           ),
         }))
       },
-
-      // Toggle a single recurring occurrence's completed mark from the monthly
-      // view. Un-completing an occurrence earlier than the current due date rolls
-      // the due date back to it (preserving the time of day) so the series
-      // resumes there — this is how a mistaken future completion is undone.
-      toggleRecurrenceDay: (id, dateKey) =>
-        set((s) => ({
-          tasks: s.tasks.map((t) => {
-            if (t.id !== id) return t
-            const wasDone = t.recurrenceLog.includes(dateKey)
-            if (wasDone) {
-              const log = t.recurrenceLog.filter((d) => d !== dateKey)
-              const dueDay = t.dueDate ? dayKey(t.dueDate) : null
-              const time = t.dueDate && t.dueDate.length > 10 ? t.dueDate.slice(10) : ''
-              const dueDate = dueDay && dateKey < dueDay ? dateKey + time : t.dueDate
-              return { ...t, recurrenceLog: log, dueDate, completed: false, completedAt: null }
-            }
-            return { ...t, recurrenceLog: [...t.recurrenceLog, dateKey] }
-          }),
-        })),
 
       // Mark a habit as fully done for a given day (used by notification action).
       markHabitDone: (id, date) =>
