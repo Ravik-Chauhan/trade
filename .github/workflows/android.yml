@@ -5,7 +5,7 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [claude/road-rash-android-game-6kcqtf]
+    branches: [main, claude/road-rash-android-game-6kcqtf]
     paths:
       - 'src/**'
       - 'public/**'
