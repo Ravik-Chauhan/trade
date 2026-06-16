@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Download, Upload, RotateCcw, Sun, Moon, Monitor, Bell, BellRing, Cloud, CloudOff, RefreshCw, UploadCloud, DownloadCloud, Lock, ShieldCheck } from 'lucide-react'
+import { Download, Upload, RotateCcw, Sun, Moon, Monitor, Bell, BellRing, Cloud, CloudOff, RefreshCw, UploadCloud, DownloadCloud, Lock, ShieldCheck, CheckCircle2, AlertTriangle, AlarmClock, BatteryCharging, HelpCircle } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useToasts } from '../store/useToasts'
 import { useLock } from '../store/useLock'
@@ -21,8 +21,11 @@ import {
   requestNativePermission,
   syncNativeReminders,
   sendNativeTest,
+  getExactAlarmStatus,
+  openExactAlarmSettings,
   type NativePerm,
 } from '../lib/nativeNotifications'
+import { isIgnoringBatteryOptimizations, openBatterySettings, openAppSettings } from '../lib/batteryOptimization'
 import type { AppState } from '../types'
 
 export default function SettingsView() {
@@ -223,6 +226,7 @@ export default function SettingsView() {
             ? 'Reminders are scheduled on your device, so task reminders and habit times alert you even when TickFlow is closed. The in-app toast + chime also play while the app is open.'
             : 'OS notifications need a secure page (localhost or https), so they only pop up while a TickFlow tab is open. The in-app toast + chime always work.'}
         </div>
+        {native && <NotificationHealth />}
       </Group>
 
       <Group title="App Lock">
@@ -332,6 +336,132 @@ export default function SettingsView() {
       </Group>
 
       {showLockSetup && <LockSetup onClose={() => setShowLockSetup(false)} />}
+    </div>
+  )
+}
+
+type HealthState = 'ok' | 'warn' | 'unknown' | 'loading'
+
+function NotificationHealth() {
+  const [perm, setPerm] = useState<HealthState>('loading')
+  const [exact, setExact] = useState<HealthState>('loading')
+  const [battery, setBattery] = useState<HealthState>('loading')
+
+  const check = async () => {
+    const [p, e, b] = await Promise.all([
+      getNativePermission(),
+      getExactAlarmStatus(),
+      isIgnoringBatteryOptimizations(),
+    ])
+    setPerm(p === 'granted' ? 'ok' : 'warn')
+    setExact(e === 'granted' ? 'ok' : 'warn')
+    setBattery(b === null ? 'unknown' : b ? 'ok' : 'warn')
+  }
+
+  useEffect(() => {
+    check()
+    // re-check when returning from a system settings screen
+    const onVisible = () => document.visibilityState === 'visible' && check()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
+
+  const issues = [perm, exact, battery].filter((s) => s === 'warn').length
+  const summary =
+    perm === 'loading'
+      ? 'Checking…'
+      : issues === 0
+        ? '✅ All set — reminders should fire reliably'
+        : `⚠️ ${issues} thing${issues > 1 ? 's' : ''} may stop reminders from firing`
+
+  return (
+    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, marginTop: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ fontWeight: 600, fontSize: 13 }}>Notification health · {summary}</div>
+        <button className="btn" style={{ padding: '5px 10px' }} onClick={check}>
+          <RefreshCw size={14} /> Re-check
+        </button>
+      </div>
+
+      <HealthRow
+        icon={<Bell size={16} />}
+        title="Notifications allowed"
+        state={perm}
+        okText="TickFlow can post notifications"
+        warnText="Blocked — turn on notifications for TickFlow"
+        actionLabel="Open settings"
+        onAction={openAppSettings}
+      />
+      <HealthRow
+        icon={<AlarmClock size={16} />}
+        title="Exact alarms"
+        state={exact}
+        okText="Reminders can fire at the exact time"
+        warnText="Off — reminders may be delayed or skipped"
+        actionLabel="Fix"
+        onAction={async () => {
+          const r = await openExactAlarmSettings()
+          setExact(r === 'granted' ? 'ok' : 'warn')
+        }}
+      />
+      <HealthRow
+        icon={<BatteryCharging size={16} />}
+        title="Battery optimization"
+        state={battery}
+        okText="Unrestricted — alarms run on time"
+        warnText="Optimized — Android may delay or drop reminders"
+        unknownText="Couldn't check — set TickFlow to Unrestricted to be safe"
+        actionLabel="Fix"
+        onAction={openBatterySettings}
+      />
+    </div>
+  )
+}
+
+function HealthRow({
+  icon,
+  title,
+  state,
+  okText,
+  warnText,
+  unknownText,
+  actionLabel,
+  onAction,
+}: {
+  icon: React.ReactNode
+  title: string
+  state: HealthState
+  okText: string
+  warnText: string
+  unknownText?: string
+  actionLabel: string
+  onAction: () => void | Promise<void>
+}) {
+  const statusIcon =
+    state === 'ok' ? (
+      <CheckCircle2 size={18} style={{ color: 'var(--green, #36b37e)' }} />
+    ) : state === 'warn' ? (
+      <AlertTriangle size={18} style={{ color: 'var(--amber)' }} />
+    ) : state === 'unknown' ? (
+      <HelpCircle size={18} style={{ color: 'var(--text-muted)' }} />
+    ) : (
+      <RefreshCw size={18} style={{ color: 'var(--text-muted)' }} />
+    )
+  const desc = state === 'ok' ? okText : state === 'unknown' ? unknownText ?? warnText : warnText
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0' }}>
+      <span style={{ color: 'var(--text-muted)', display: 'flex' }}>{icon}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 500, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+          {title} {statusIcon}
+        </div>
+        <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>{state === 'loading' ? 'Checking…' : desc}</div>
+      </div>
+      {(state === 'warn' || state === 'unknown') && (
+        <button className="btn" style={{ padding: '6px 12px', flexShrink: 0 }} onClick={onAction}>
+          {actionLabel}
+        </button>
+      )}
     </div>
   )
 }

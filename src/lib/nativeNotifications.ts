@@ -102,6 +102,28 @@ export async function requestNativePermission(): Promise<boolean> {
   }
 }
 
+/** Whether the OS will let us schedule exact alarms (needed for on-time reminders). */
+export async function getExactAlarmStatus(): Promise<NativePerm> {
+  if (!isNative()) return 'denied'
+  try {
+    const res = await LocalNotifications.checkExactNotificationSetting()
+    return res.exact_alarm === 'granted' ? 'granted' : res.exact_alarm === 'denied' ? 'denied' : 'prompt'
+  } catch {
+    return 'prompt'
+  }
+}
+
+/** Opens the system "Alarms & reminders" screen; returns the resulting status. */
+export async function openExactAlarmSettings(): Promise<NativePerm> {
+  if (!isNative()) return 'denied'
+  try {
+    const res = await LocalNotifications.changeExactNotificationSetting()
+    return res.exact_alarm === 'granted' ? 'granted' : res.exact_alarm === 'denied' ? 'denied' : 'prompt'
+  } catch {
+    return 'prompt'
+  }
+}
+
 /** Build the set of notifications to schedule from the current tasks + habits. */
 function buildNotifications(tasks: Task[], habits: Habit[]): LocalNotificationSchema[] {
   // `primary` holds each reminder's first/base alarm; `nags` holds the later
