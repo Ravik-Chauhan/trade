@@ -26,6 +26,7 @@ import {
   type NativePerm,
 } from '../lib/nativeNotifications'
 import { isIgnoringBatteryOptimizations, openBatterySettings, openAppSettings } from '../lib/batteryOptimization'
+import { exportBackup } from '../lib/backup'
 import type { AppState } from '../types'
 
 export default function SettingsView() {
@@ -122,7 +123,7 @@ export default function SettingsView() {
     }
   }
 
-  const exportData = () => {
+  const exportData = async () => {
     const state = useStore.getState()
     const data: AppState = {
       tasks: state.tasks,
@@ -134,27 +135,39 @@ export default function SettingsView() {
       pomodoros: state.pomodoros,
       settings: state.settings,
     }
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `tickflow-backup-${new Date().toISOString().slice(0, 10)}.json`
-    a.click()
-    URL.revokeObjectURL(url)
+    const filename = `tickflow-backup-${new Date().toISOString().slice(0, 10)}.json`
+    const res = await exportBackup(JSON.stringify(data, null, 2), filename)
+    if (!res.ok) {
+      pushToast({ title: 'Export failed', body: res.detail || 'Could not create the backup file.', emoji: '⚠️' })
+    } else if (res.mode === 'shared') {
+      pushToast({ title: 'Backup ready', body: 'Choose where to save your backup.', emoji: '📤' })
+    } else if (res.mode === 'saved') {
+      pushToast({ title: 'Backup saved', body: 'Stored in the app — share unavailable.', emoji: '💾' })
+    } else {
+      pushToast({ title: 'Backup downloaded', body: filename, emoji: '⬇️' })
+    }
   }
 
   const onImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    // reset so picking the same file again still fires onChange
+    e.target.value = ''
     if (!file) return
     const reader = new FileReader()
     reader.onload = () => {
       try {
         const data = JSON.parse(reader.result as string) as AppState
-        if (data.tasks && data.lists) importData(data)
+        if (data.tasks && data.lists) {
+          importData(data)
+          pushToast({ title: 'Backup imported', body: `${data.tasks.length} tasks restored.`, emoji: '✅' })
+        } else {
+          pushToast({ title: 'Import failed', body: 'That file is missing tasks or lists.', emoji: '⚠️' })
+        }
       } catch {
-        alert('Invalid backup file')
+        pushToast({ title: 'Import failed', body: "That doesn't look like a valid TickFlow backup.", emoji: '⚠️' })
       }
     }
+    reader.onerror = () => pushToast({ title: 'Import failed', body: 'Could not read the file.', emoji: '⚠️' })
     reader.readAsText(file)
   }
 
