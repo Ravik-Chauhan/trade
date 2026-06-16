@@ -14,9 +14,8 @@ import { cx } from '../lib/utils'
  * recurring task it projects future occurrences (honoring the recurrence's end
  * conditions); for a one-off task it just marks the due date.
  */
-export default function OccurrencePreview({ task }: { task: Task }) {
+export default function OccurrencePreview({ task, onToggleDay }: { task: Task; onToggleDay?: (dateKey: string) => void }) {
   const weekStartsMonday = useStore((s) => s.settings.weekStartsMonday)
-  const toggleRecurrenceDay = useStore((s) => s.toggleRecurrenceDay)
   const [cursor, setCursor] = useState(() => (task.dueDate ? new Date(task.dueDate.slice(0, 10)) : new Date()))
 
   const weekOpts = { weekStartsOn: (weekStartsMonday ? 1 : 0) as 0 | 1 }
@@ -54,13 +53,13 @@ export default function OccurrencePreview({ task }: { task: Task }) {
           const outside = !isSameMonth(day, cursor)
           const isDone = done.has(key)
           const isOcc = occ.has(key)
-          const interactive = task.recurrence.rule !== 'none' && (isDone || isOcc)
+          const interactive = !!onToggleDay && task.recurrence.rule !== 'none' && (isDone || isOcc)
           return (
             <div
               key={key}
               role={interactive ? 'button' : undefined}
               title={interactive ? (isDone ? 'Tap to undo this completion' : 'Tap to mark this day done') : undefined}
-              onClick={interactive ? () => toggleRecurrenceDay(task.id, key) : undefined}
+              onClick={interactive ? () => onToggleDay!(key) : undefined}
               className={cx('track-day', interactive && 'clickable', outside && 'muted', isToday(day) && 'today', isDone && 'occ-done', isOcc && !isDone && 'occ')}
             >
               <span className="track-daynum">{format(day, 'd')}</span>

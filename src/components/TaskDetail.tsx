@@ -54,8 +54,21 @@ export default function TaskDetail() {
   const task = useStore((s) => s.tasks.find((t) => t.id === selectedTaskId))
   const allTags = useStore((s) => s.tags)
   const lists = useStore((s) => s.lists)
-  const { updateTask, deleteTask, toggleTask, skipTask, addTag } = useStore()
+  const { updateTask, deleteTask, toggleTask, skipTask, addTag, toggleRecurrenceDay } = useStore()
   const pushToast = useToasts((s) => s.push)
+
+  // Toggling an occurrence in the monthly view is a live action (commits now,
+  // not on Save). Mirror the store's resulting recurrenceLog + dueDate back into
+  // the draft so the calendar updates immediately and Save isn't left "dirty".
+  const onToggleRecurrenceDay = (dateKey: string) => {
+    const id = selectedTaskId
+    if (!id) return
+    toggleRecurrenceDay(id, dateKey)
+    const updated = useStore.getState().tasks.find((x) => x.id === id)
+    if (updated) {
+      setDraft((d) => (d ? { ...d, recurrenceLog: [...updated.recurrenceLog], dueDate: updated.dueDate } : d))
+    }
+  }
 
   // local draft — all field edits go here and only commit on Save
   const [draft, setDraft] = useState<Task | null>(null)
@@ -242,7 +255,7 @@ export default function TaskDetail() {
             />
           </div>
 
-          {draft.dueDate && <OccurrencePreview task={draft} />}
+          {draft.dueDate && <OccurrencePreview task={draft} onToggleDay={onToggleRecurrenceDay} />}
         </div>
 
         <div className="detail-section">
