@@ -98,6 +98,41 @@ describe('toggleTask', () => {
   })
 })
 
+describe('toggleRecurrenceDay (undo mistaken completions)', () => {
+  const makeRecurring = () =>
+    S().addTask({
+      title: 'meds', listId: 'inbox', dueDate: '2026-06-15T10:00:00', hasTime: true,
+      recurrence: { rule: 'weekly', interval: 1, endType: 'never', endDate: null, endCount: 10, count: 0 },
+    })
+
+  it('logs occurrences as the user completes future dates', () => {
+    const id = makeRecurring()
+    S().toggleTask(id) // logs 06-15, advances to 06-22
+    S().toggleTask(id) // logs 06-22, advances to 06-29
+    const t = S().tasks.find((x) => x.id === id)!
+    expect(t.recurrenceLog).toEqual(['2026-06-15', '2026-06-22'])
+    expect(t.dueDate.slice(0, 10)).toBe('2026-06-29')
+  })
+
+  it('undoes a future completion and rolls the due date back, keeping the time', () => {
+    const id = makeRecurring()
+    S().toggleTask(id)
+    S().toggleTask(id) // now done [15,22], due 06-29
+    S().toggleRecurrenceDay(id, '2026-06-22') // undo the 22nd
+    const t = S().tasks.find((x) => x.id === id)!
+    expect(t.recurrenceLog).toEqual(['2026-06-15'])
+    expect(t.dueDate).toBe('2026-06-22T10:00:00') // due again on the 22nd, 10:00 preserved
+  })
+
+  it('re-adds a day without touching a later due date', () => {
+    const id = makeRecurring() // due 06-15
+    S().toggleRecurrenceDay(id, '2026-06-08') // mark an earlier day done
+    const t = S().tasks.find((x) => x.id === id)!
+    expect(t.recurrenceLog).toEqual(['2026-06-08'])
+    expect(t.dueDate).toBe('2026-06-15T10:00:00') // unchanged
+  })
+})
+
 describe('subtasks', () => {
   it('adds, toggles, updates and deletes subtasks', () => {
     const id = S().addTask({ title: 'x', listId: 'inbox' })

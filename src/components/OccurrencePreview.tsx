@@ -16,6 +16,7 @@ import { cx } from '../lib/utils'
  */
 export default function OccurrencePreview({ task }: { task: Task }) {
   const weekStartsMonday = useStore((s) => s.settings.weekStartsMonday)
+  const toggleRecurrenceDay = useStore((s) => s.toggleRecurrenceDay)
   const [cursor, setCursor] = useState(() => (task.dueDate ? new Date(task.dueDate.slice(0, 10)) : new Date()))
 
   const weekOpts = { weekStartsOn: (weekStartsMonday ? 1 : 0) as 0 | 1 }
@@ -53,10 +54,14 @@ export default function OccurrencePreview({ task }: { task: Task }) {
           const outside = !isSameMonth(day, cursor)
           const isDone = done.has(key)
           const isOcc = occ.has(key)
+          const interactive = task.recurrence.rule !== 'none' && (isDone || isOcc)
           return (
             <div
               key={key}
-              className={cx('track-day', outside && 'muted', isToday(day) && 'today', isDone && 'occ-done', isOcc && !isDone && 'occ')}
+              role={interactive ? 'button' : undefined}
+              title={interactive ? (isDone ? 'Tap to undo this completion' : 'Tap to mark this day done') : undefined}
+              onClick={interactive ? () => toggleRecurrenceDay(task.id, key) : undefined}
+              className={cx('track-day', interactive && 'clickable', outside && 'muted', isToday(day) && 'today', isDone && 'occ-done', isOcc && !isDone && 'occ')}
             >
               <span className="track-daynum">{format(day, 'd')}</span>
               {isDone ? <Check size={12} strokeWidth={3} className="occ-check" /> : isOcc ? <span className="occ-dot" /> : null}
@@ -70,9 +75,13 @@ export default function OccurrencePreview({ task }: { task: Task }) {
         <span className="track-legend-item"><Check size={11} strokeWidth={3} className="occ-check" /> completed</span>
       </div>
 
-      {task.recurrence.rule === 'none' && (
+      {task.recurrence.rule === 'none' ? (
         <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 6 }}>
           One-off task — the due date is highlighted. Set a Repeat above to see recurring days.
+        </div>
+      ) : (
+        <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 6 }}>
+          Tap a completed day to undo it, or a scheduled day to mark it done.
         </div>
       )}
     </div>
