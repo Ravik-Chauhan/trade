@@ -42,6 +42,24 @@ export function isOverdue(value: string | null): boolean {
   return isPast(startOfDay(d))
 }
 
+/**
+ * Time-aware "past due": a timed task is overdue the moment its time passes
+ * (incl. today, e.g. due 10:00 and it's now 11:25). A date-only task is only
+ * overdue once the whole day has passed (same as isOverdue).
+ */
+export function isPastDue(value: string | null, hasTime: boolean): boolean {
+  if (!value) return false
+  if (hasTime) return parseISO(value).getTime() < Date.now()
+  return isOverdue(value)
+}
+
+/** Whether 'HH:mm' on the given day (yyyy-MM-dd) is already in the past. */
+export function isTimePast(dayKey: string, time: string | null): boolean {
+  if (!time) return false
+  const t = Date.parse(`${dayKey}T${time}`)
+  return !Number.isNaN(t) && t < Date.now()
+}
+
 export function relativeDays(value: string | null): number | null {
   if (!value) return null
   return differenceInCalendarDays(parseISO(value), startOfDay(new Date()))

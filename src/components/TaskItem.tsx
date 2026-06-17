@@ -4,7 +4,7 @@ import type { Task } from '../types'
 import { useStore } from '../store/useStore'
 import { useUI } from '../store/useUI'
 import { cx } from '../lib/utils'
-import { formatDue, isOverdue, isDueToday, relativeDays, todayISO } from '../lib/date'
+import { formatDue, isPastDue, isTimePast, isDueToday, relativeDays, todayISO } from '../lib/date'
 import { dayProgress } from '../lib/tracking'
 
 interface Props {
@@ -38,6 +38,7 @@ export default function TaskItem({ task, onContext, selectMode = false, selected
   const list = lists.find((l) => l.id === task.listId)
   const today = todayISO()
   const isNote = task.kind === 'note'
+  const overdue = !task.completed && isPastDue(task.dueDate, task.hasTime)
   const prog = task.trackingEnabled ? dayProgress(task, today) : null
   const trackingComplete = prog ? prog.total > 0 && prog.done === prog.total : false
   const noteSnippet = isNote ? task.notes.trim().split('\n').filter(Boolean).slice(0, 2).join(' · ') : ''
@@ -105,10 +106,12 @@ export default function TaskItem({ task, onContext, selectMode = false, selected
           <div className="slot-chips">
             {task.slots.map((slot) => {
               const done = (task.completionLog[today] ?? []).includes(slot.id)
+              const slotOverdue = !done && isTimePast(today, slot.time)
               return (
                 <button
                   key={slot.id}
-                  className={cx('slot-chip', done && 'done')}
+                  className={cx('slot-chip', done && 'done', slotOverdue && 'overdue')}
+                  title={slotOverdue ? 'Overdue' : undefined}
                   onClick={(e) => {
                     e.stopPropagation()
                     toggleSlot(task.id, today, slot.id)
@@ -124,12 +127,13 @@ export default function TaskItem({ task, onContext, selectMode = false, selected
 
         {(task.dueDate || task.tags.length > 0 || task.recurrence.rule !== 'none' || task.subtasks.length > 0 || task.priority > 0 || task.reminders.length > 0) && (
           <div className="task-meta">
+            {overdue && <span className="meta-chip overdue-tag">⏰ Overdue</span>}
             {task.dueDate && (
               <span
                 className={cx(
                   'meta-chip',
-                  isOverdue(task.dueDate) && !task.completed && 'due-overdue',
-                  isDueToday(task.dueDate) && 'due-today'
+                  overdue && 'due-overdue',
+                  !overdue && isDueToday(task.dueDate) && 'due-today'
                 )}
               >
                 <Calendar size={12} />

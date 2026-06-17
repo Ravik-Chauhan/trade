@@ -9,6 +9,8 @@ import {
   isWithinNext7,
   isDueToday,
   isDueTomorrow,
+  isPastDue,
+  isTimePast,
   toggleOccurrence,
 } from './date'
 import type { Recurrence } from '../types'
@@ -148,6 +150,18 @@ describe('relative date helpers (clock pinned to 2026-06-01)', () => {
     expect(isOverdue('2026-06-01')).toBe(false)
     expect(isOverdue('2026-06-02')).toBe(false)
     expect(isOverdue(null)).toBe(false)
+  })
+  it('isPastDue is time-aware for timed tasks', () => {
+    expect(isPastDue('2026-06-01T10:00:00', true)).toBe(true) // 10:00 < now 12:00
+    expect(isPastDue('2026-06-01T15:00:00', true)).toBe(false) // later today
+    expect(isPastDue('2026-06-01', false)).toBe(false) // date-only today not overdue
+    expect(isPastDue('2026-05-31', false)).toBe(true) // yesterday
+    expect(isPastDue(null, true)).toBe(false)
+  })
+  it('isTimePast checks a slot time against now', () => {
+    expect(isTimePast('2026-06-01', '10:00')).toBe(true)
+    expect(isTimePast('2026-06-01', '15:00')).toBe(false)
+    expect(isTimePast('2026-06-01', null)).toBe(false)
   })
   it('relativeDays computes calendar day difference', () => {
     expect(relativeDays('2026-06-01')).toBe(0)
