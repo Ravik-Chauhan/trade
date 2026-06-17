@@ -20,6 +20,7 @@ import type { SortMode, ViewMode, GroupMode } from '../types'
 
 const SMART_TITLES: Record<string, { title: string; emoji: string }> = {
   today: { title: 'Today', emoji: '☀️' },
+  overdue: { title: 'Overdue', emoji: '⏰' },
   tomorrow: { title: 'Tomorrow', emoji: '🌅' },
   next7: { title: 'Next 7 Days', emoji: '🗓️' },
   inbox: { title: 'Inbox', emoji: '📥' },

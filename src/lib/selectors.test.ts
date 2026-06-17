@@ -104,6 +104,12 @@ describe('matchesSelection', () => {
     expect(matchesSelection(today, { kind: 'smart', id: 'today' })).toBe(true)
     expect(matchesSelection(future, { kind: 'smart', id: 'today' })).toBe(false)
   })
+  it('overdue matches past-due incomplete tasks only', () => {
+    expect(matchesSelection(makeTask({ dueDate: '2026-05-30' }), { kind: 'smart', id: 'overdue' })).toBe(true)
+    expect(matchesSelection(makeTask({ dueDate: '2026-05-30', completed: true }), { kind: 'smart', id: 'overdue' })).toBe(false)
+    expect(matchesSelection(makeTask({ dueDate: '2026-06-01' }), { kind: 'smart', id: 'overdue' })).toBe(false)
+    expect(matchesSelection(makeTask({ dueDate: '2026-06-05' }), { kind: 'smart', id: 'overdue' })).toBe(false)
+  })
   it('high matches only priority 3', () => {
     expect(matchesSelection(makeTask({ priority: 3 }), { kind: 'smart', id: 'high' })).toBe(true)
     expect(matchesSelection(makeTask({ priority: 2 }), { kind: 'smart', id: 'high' })).toBe(false)

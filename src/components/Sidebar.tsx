@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import {
   CalendarDays,
+  CalendarClock,
   Inbox,
   Layers,
   Sun,
@@ -34,6 +35,7 @@ import type { TaskList, SmartFilter, Priority, DueFilter, Folder } from '../type
 
 const SMART = [
   { id: 'today', label: 'Today', icon: Sun },
+  { id: 'overdue', label: 'Overdue', icon: CalendarClock },
   { id: 'tomorrow', label: 'Tomorrow', icon: Sunrise },
   { id: 'next7', label: 'Next 7 Days', icon: CalendarDays },
   { id: 'inbox', label: 'Inbox', icon: Inbox },

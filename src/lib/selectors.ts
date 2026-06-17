@@ -62,6 +62,8 @@ export function matchesSelection(task: Task, sel: Selection, filters: SmartFilte
         }
         case 'tomorrow':
           return isDueTomorrow(task.dueDate)
+        case 'overdue':
+          return isOverdue(task.dueDate) && !task.completed
         case 'next7':
           return isWithinNext7(task.dueDate) || (isOverdue(task.dueDate) && !task.completed)
         case 'inbox':
