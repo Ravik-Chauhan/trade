@@ -160,7 +160,7 @@ export interface Settings {
   showCompleted: boolean
 }
 
-export type SortMode = 'manual' | 'dueDate' | 'priority' | 'title' | 'createdAt'
+export type SortMode = 'manual' | 'dueDate' | 'time' | 'priority' | 'title' | 'createdAt'
 
 export type SmartListId =
   | 'today'

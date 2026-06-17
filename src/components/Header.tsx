@@ -31,8 +31,9 @@ const SMART_TITLES: Record<string, { title: string; emoji: string }> = {
 }
 
 const SORTS: { value: SortMode; label: string }[] = [
-  { value: 'manual', label: 'Manual' },
+  { value: 'manual', label: 'Manual order' },
   { value: 'dueDate', label: 'Due date' },
+  { value: 'time', label: 'Time of day' },
   { value: 'priority', label: 'Priority' },
   { value: 'title', label: 'Title' },
   { value: 'createdAt', label: 'Date created' },

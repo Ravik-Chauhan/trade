@@ -173,6 +173,12 @@ describe('sortTasks', () => {
     const noDate = makeTask({ dueDate: null })
     expect(sortTasks([noDate, withDate], 'dueDate')[0].id).toBe(withDate.id)
   })
+  it('sorts by time of day: earliest tracking slot, then due time, untimed last', () => {
+    const tracked = makeTask({ id: 'a', trackingEnabled: true, slots: [{ id: 's', label: 'x', time: '09:00' }], completionLog: {} })
+    const timed = makeTask({ id: 'b', dueDate: '2026-06-01T15:00:00', hasTime: true })
+    const untimed = makeTask({ id: 'c', dueDate: null })
+    expect(sortTasks([untimed, timed, tracked], 'time').map((t) => t.id)).toEqual(['a', 'b', 'c'])
+  })
 })
 
 describe('getVisibleTasks & countForSelection', () => {

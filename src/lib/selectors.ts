@@ -94,6 +94,15 @@ export function searchMatch(task: Task, query: string): boolean {
   )
 }
 
+/** A task's time of day: earliest tracking slot, else the due time. Null = untimed. */
+function timeOfDay(t: Task): string | null {
+  if (t.trackingEnabled) {
+    const times = t.slots.map((s) => s.time).filter((x): x is string => !!x).sort()
+    return times[0] ?? null
+  }
+  return t.hasTime && t.dueDate ? t.dueDate.slice(11, 16) : null
+}
+
 export function sortTasks(tasks: Task[], sort: SortMode): Task[] {
   const arr = [...tasks]
   switch (sort) {
@@ -103,6 +112,15 @@ export function sortTasks(tasks: Task[], sort: SortMode): Task[] {
         if (!a.dueDate) return 1
         if (!b.dueDate) return -1
         return a.dueDate.localeCompare(b.dueDate)
+      })
+    case 'time':
+      return arr.sort((a, b) => {
+        const ta = timeOfDay(a)
+        const tb = timeOfDay(b)
+        if (ta && tb) return ta.localeCompare(tb) || a.order - b.order
+        if (ta) return -1
+        if (tb) return 1
+        return a.order - b.order
       })
     case 'priority':
       return arr.sort((a, b) => b.priority - a.priority || a.order - b.order)

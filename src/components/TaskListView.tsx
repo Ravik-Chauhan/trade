@@ -121,7 +121,12 @@ export default function TaskListView() {
           <div className="modal-backdrop" style={{ background: 'transparent' }} onClick={() => setCtx(null)} />
           <div
             className="ctx-menu"
-            style={{ left: Math.min(ctx.x, window.innerWidth - 200), top: Math.min(ctx.y, window.innerHeight - 320) }}
+            style={{
+              left: Math.max(8, Math.min(ctx.x, window.innerWidth - 220)),
+              top: Math.max(8, Math.min(ctx.y, window.innerHeight - 8 - Math.min(window.innerHeight * 0.7, 460))),
+              maxHeight: Math.min(window.innerHeight * 0.7, 460),
+              overflowY: 'auto',
+            }}
           >
             <button className="ctx-item" onClick={() => startSelect(ctx.task.id)}>
               <ListChecks size={15} /> Select multiple
