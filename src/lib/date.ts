@@ -12,7 +12,7 @@ import {
   addYears,
   differenceInCalendarDays,
 } from 'date-fns'
-import type { RepeatRule, Recurrence } from '../types'
+import type { RepeatRule, Recurrence, Task } from '../types'
 
 export const todayISO = (): string => format(new Date(), 'yyyy-MM-dd')
 
@@ -58,6 +58,21 @@ export function isTimePast(dayKey: string, time: string | null): boolean {
   if (!time) return false
   const t = Date.parse(`${dayKey}T${time}`)
   return !Number.isNaN(t) && t < Date.now()
+}
+
+/**
+ * Single source of truth for "is this task overdue right now": a tracking task
+ * is overdue if any of today's slots is past its time and still unticked; any
+ * other task is overdue once its (time-aware) due moment has passed. Completed
+ * items and notes are never overdue.
+ */
+export function isTaskOverdue(task: Task, today: string): boolean {
+  if (task.completed || task.kind === 'note') return false
+  if (task.trackingEnabled) {
+    const done = new Set(task.completionLog[today] ?? [])
+    return task.slots.some((s) => !done.has(s.id) && isTimePast(today, s.time))
+  }
+  return isPastDue(task.dueDate, task.hasTime)
 }
 
 export function relativeDays(value: string | null): number | null {

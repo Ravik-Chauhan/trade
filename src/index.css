@@ -964,6 +964,10 @@ select {
   text-overflow: ellipsis;
   border-left: 3px solid var(--accent);
 }
+.cal-event.overdue {
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+  color: var(--red);
+}
 .cal-event.done {
   text-decoration: line-through;
   opacity: 0.55;

@@ -1,5 +1,6 @@
 import type { Task } from '../types'
 import { format, parseISO } from 'date-fns'
+import { isPastDue, isTimePast } from './date'
 
 /** A single thing to show on the calendar — a scheduled task or a tracking slot. */
 export interface CalItem {
@@ -11,6 +12,7 @@ export interface CalItem {
   priority: number
   completed: boolean
   tracking: boolean
+  overdue: boolean
 }
 
 const dueDay = (d: string) => format(parseISO(d), 'yyyy-MM-dd')
@@ -34,9 +36,10 @@ export function itemsForDay(tasks: Task[], dayKey: string): CalItem[] {
     if (t.trackingEnabled) {
       const done = new Set(t.completionLog[dayKey] ?? [])
       if (t.slots.length === 0) {
-        items.push({ key: `${t.id}:track`, taskId: t.id, title: t.title, time: null, priority: t.priority, completed: false, tracking: true })
+        items.push({ key: `${t.id}:track`, taskId: t.id, title: t.title, time: null, priority: t.priority, completed: false, tracking: true, overdue: false })
       } else {
         for (const s of t.slots) {
+          const isDone = done.has(s.id)
           items.push({
             key: `${t.id}:${s.id}`,
             taskId: t.id,
@@ -44,8 +47,9 @@ export function itemsForDay(tasks: Task[], dayKey: string): CalItem[] {
             title: s.label ? `${t.title} · ${s.label}` : t.title,
             time: s.time ?? null,
             priority: t.priority,
-            completed: done.has(s.id),
+            completed: isDone,
             tracking: true,
+            overdue: !isDone && isTimePast(dayKey, s.time),
           })
         }
       }
@@ -58,6 +62,7 @@ export function itemsForDay(tasks: Task[], dayKey: string): CalItem[] {
         priority: t.priority,
         completed: t.completed,
         tracking: false,
+        overdue: !t.completed && isPastDue(t.dueDate, t.hasTime),
       })
     }
   }
@@ -76,6 +81,7 @@ export function overdueItems(tasks: Task[], todayKey: string): CalItem[] {
       priority: t.priority,
       completed: false,
       tracking: false,
+      overdue: true,
     }))
     .sort((a, b) => a.key.localeCompare(b.key))
 }

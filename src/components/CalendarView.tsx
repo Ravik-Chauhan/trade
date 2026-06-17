@@ -90,8 +90,8 @@ const PRIO_COLORS = ['var(--accent)', '#4772fa', 'var(--amber)', 'var(--red)']
 function EventChip({ item, onPick }: { item: CalItem; onPick: (id: string) => void }) {
   return (
     <div
-      className={cx('cal-event', item.completed && 'done')}
-      style={{ borderLeftColor: PRIO_COLORS[item.priority] }}
+      className={cx('cal-event', item.completed && 'done', item.overdue && 'overdue')}
+      style={{ borderLeftColor: item.overdue ? 'var(--red)' : PRIO_COLORS[item.priority] }}
       onClick={() => onPick(item.taskId)}
       title={item.title}
     >
@@ -104,11 +104,13 @@ function EventChip({ item, onPick }: { item: CalItem; onPick: (id: string) => vo
 function ItemRow({ item, onPick }: { item: CalItem; onPick: (id: string) => void }) {
   return (
     <div className="task-item" onClick={() => onPick(item.taskId)}>
-      <span className="dot" style={{ background: PRIO_COLORS[item.priority], marginTop: 6 }} />
+      <span className="dot" style={{ background: item.overdue ? 'var(--red)' : PRIO_COLORS[item.priority], marginTop: 6 }} />
       <div className="task-body">
         <div className={cx('task-title', item.completed && 'done')}>{item.title}</div>
         {item.time && (
-          <div className="task-meta"><span className="meta-chip">{item.time}</span></div>
+          <div className="task-meta">
+            <span className={cx('meta-chip', item.overdue && 'due-overdue')}>{item.time}</span>
+          </div>
         )}
       </div>
     </div>
@@ -180,10 +182,14 @@ function DayList({ cursor, tasks, onPick }: { cursor: Date; tasks: Task[]; onPic
   const dayKey = format(cursor, 'yyyy-MM-dd')
   const todayKey = format(new Date(), 'yyyy-MM-dd')
   const viewingToday = dayKey === todayKey
-  const overdue = viewingToday ? overdueItems(tasks, todayKey) : []
-  const items = itemsForDay(tasks, dayKey)
+  const all = itemsForDay(tasks, dayKey)
 
-  if (overdue.length === 0 && items.length === 0) {
+  // When viewing today, pull everything overdue (past-date tasks + today's items
+  // whose time has passed) into a dedicated section above the rest.
+  const overdue = viewingToday ? [...overdueItems(tasks, todayKey), ...all.filter((i) => i.overdue)] : []
+  const rest = viewingToday ? all.filter((i) => !i.overdue) : all
+
+  if (overdue.length === 0 && rest.length === 0) {
     return (
       <div className="empty" style={{ height: 240 }}>
         <span className="emoji">📅</span>
@@ -200,10 +206,10 @@ function DayList({ cursor, tasks, onPick }: { cursor: Date; tasks: Task[]; onPic
           {overdue.map((it) => <ItemRow key={it.key} item={it} onPick={onPick} />)}
         </>
       )}
-      {items.length > 0 && (
+      {rest.length > 0 && (
         <>
-          <div className="task-group-title">{viewingToday ? 'Today' : format(cursor, 'EEE, MMM d')} · {items.length}</div>
-          {items.map((it) => <ItemRow key={it.key} item={it} onPick={onPick} />)}
+          <div className="task-group-title">{viewingToday ? 'Today' : format(cursor, 'EEE, MMM d')} · {rest.length}</div>
+          {rest.map((it) => <ItemRow key={it.key} item={it} onPick={onPick} />)}
         </>
       )}
     </div>
@@ -212,8 +218,9 @@ function DayList({ cursor, tasks, onPick }: { cursor: Date; tasks: Task[]; onPic
 
 function AgendaList({ tasks, onPick }: { tasks: Task[]; onPick: (id: string) => void }) {
   const todayKey = format(new Date(), 'yyyy-MM-dd')
-  const overdue = overdueItems(tasks, todayKey)
-  const todayItems = itemsForDay(tasks, todayKey)
+  const todayAll = itemsForDay(tasks, todayKey)
+  const overdue = [...overdueItems(tasks, todayKey), ...todayAll.filter((i) => i.overdue)]
+  const todayItems = todayAll.filter((i) => !i.overdue)
 
   // upcoming due-dated tasks after today (tracking recurs daily, so it's only
   // surfaced for Today here to keep the agenda finite)
@@ -226,7 +233,7 @@ function AgendaList({ tasks, onPick }: { tasks: Task[]; onPick: (id: string) => 
     byDay.get(key)!.push({
       key: t.id, taskId: t.id, title: t.title,
       time: t.hasTime ? format(parseISO(t.dueDate), 'HH:mm') : null,
-      priority: t.priority, completed: false, tracking: false,
+      priority: t.priority, completed: false, tracking: false, overdue: false,
     })
   })
 

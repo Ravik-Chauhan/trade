@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { itemsForDay, overdueItems } from './calendarItems'
+import { isTaskOverdue } from './date'
 import type { Task } from '../types'
 import { NO_RECURRENCE } from '../types'
 
@@ -52,5 +53,38 @@ describe('overdueItems', () => {
     const tracked = base({ id: 'm', trackingEnabled: true, dueDate: '2026-06-01' })
     const items = overdueItems([past, today, doneLate, tracked], '2026-06-17')
     expect(items.map((i) => i.taskId)).toEqual(['p'])
+  })
+})
+
+describe('isTaskOverdue + itemsForDay overdue flag (clock 2026-06-17T11:30)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-17T11:30:00'))
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('flags a timed task past its time today, not a later one', () => {
+    expect(isTaskOverdue(base({ dueDate: '2026-06-17T10:00:00', hasTime: true }), '2026-06-17')).toBe(true)
+    expect(isTaskOverdue(base({ dueDate: '2026-06-17T15:00:00', hasTime: true }), '2026-06-17')).toBe(false)
+  })
+
+  it('flags a tracking task only if a slot is past its time and unticked', () => {
+    const t = base({
+      trackingEnabled: true,
+      slots: [{ id: 's1', label: 'Morning', time: '10:00' }, { id: 's2', label: 'Evening', time: '21:00' }],
+    })
+    expect(isTaskOverdue(t, '2026-06-17')).toBe(true) // 10:00 passed, unticked
+    const ticked = { ...t, completionLog: { '2026-06-17': ['s1'] } }
+    expect(isTaskOverdue(ticked, '2026-06-17')).toBe(false) // morning done, evening not yet due
+  })
+
+  it('marks the overdue flag on the matching calendar items', () => {
+    const t = base({
+      trackingEnabled: true,
+      slots: [{ id: 's1', label: 'AM', time: '10:00' }, { id: 's2', label: 'PM', time: '21:00' }],
+    })
+    const items = itemsForDay([t], '2026-06-17')
+    expect(items.find((i) => i.slotId === 's1')!.overdue).toBe(true)
+    expect(items.find((i) => i.slotId === 's2')!.overdue).toBe(false)
   })
 })

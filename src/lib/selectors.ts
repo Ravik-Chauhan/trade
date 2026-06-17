@@ -1,6 +1,6 @@
 import type { Task, SortMode, GroupMode, SmartFilter, TaskList, Priority } from '../types'
 import type { Selection } from '../store/useUI'
-import { isDueToday, isDueTomorrow, isWithinNext7, isOverdue, relativeDays, todayISO } from './date'
+import { isDueToday, isDueTomorrow, isWithinNext7, isOverdue, isTaskOverdue, relativeDays, todayISO } from './date'
 import { dayProgress } from './tracking'
 import { PRIORITY_META } from './utils'
 
@@ -63,7 +63,7 @@ export function matchesSelection(task: Task, sel: Selection, filters: SmartFilte
         case 'tomorrow':
           return isDueTomorrow(task.dueDate)
         case 'overdue':
-          return isOverdue(task.dueDate) && !task.completed
+          return isTaskOverdue(task, todayISO())
         case 'next7':
           return isWithinNext7(task.dueDate) || (isOverdue(task.dueDate) && !task.completed)
         case 'inbox':
